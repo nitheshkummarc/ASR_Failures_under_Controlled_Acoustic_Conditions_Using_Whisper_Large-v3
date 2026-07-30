@@ -1,0 +1,19 @@
+{
+  "source_dataset": "LibriSpeech dev-clean",
+  "source_url": "https://www.openslr.org/resources/12/dev-clean.tar.gz",
+  "total_utterances_in_dev_clean": "2703",
+  "selection_count": 150,
+  "duration_filter_s": [
+    3.0,
+    15.0
+  ],
+  "sampling_strategy": "stratified by speaker_id",
+  "random_seed": 42,
+  "output_format": "WAV 16kHz 16-bit PCM mono",
+  "speakers_represented": 40,
+  "duration_stats": {
+    "min": 3.1,
+    "max": 14.93,
+    "mean": 7.22
+  }
+}

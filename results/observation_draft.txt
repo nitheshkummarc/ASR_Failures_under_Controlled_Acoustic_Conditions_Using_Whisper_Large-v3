@@ -1,0 +1,44 @@
+======================================================================
+OBSERVATION-BASED DISCUSSION DRAFT
+======================================================================
+
+Based on the empirical evaluation across three distinct acoustic axes, the following 
+trends were observed regarding the Whisper large-v3 model's robustness:
+
+1. Axis A: Additive Noise (High Sample Size)
+The data shows a clear trend where decreasing Signal-to-Noise Ratio (SNR) correlates with 
+an increase in Word Error Rate (WER). At the most extreme condition (5 dB SNR), Café babble 
+was associated with a significantly higher WER (10.12%) compared to White noise 
+(8.32%). Furthermore, overlapping speech (Café babble) co-occurs with a distinct 
+shift in the error profile, generating 56 total insertion errors compared to only 
+21 insertion errors under White noise. This indicates that the model frequently 
+hallucinates or transcribes the background babble as foreground speech.
+
+2. Axis B: Channel Degradation
+Despite the strict telephonic bandpass filter (300-3400 Hz) removing substantial high 
+and low-frequency acoustic information, the model demonstrated remarkable resilience. 
+The telephonic condition was associated with a WER of 3.82%, which represents 
+only a marginal degradation from the clean baseline (5.69%). This is an observed 
+trend across the tested levels, suggesting Whisper's internal representations are highly 
+invariant to standard PSTN frequency masking.
+
+3. Axis C: Temporal Distortions
+Temporal distortions revealed significant vulnerabilities. Time-stretching the audio 
+by a factor of 1.5x (without pitch shifting) correlates with a severe degradation, 
+resulting in a WER of 15.44%. 
+
+Regarding silence insertion, the model largely powered through dead air. However, 
+it is critical to note a methodological confound in the dataset: the 1.0s and 2.0s 
+silences were inserted in the middle of the utterance, while the 0.5s silence was 
+inserted at the start. Consequently, duration and position are confounded for the 
+0.5s condition, meaning the observed error rate conflates the effect of a shorter 
+duration with the impact of a start-of-utterance disruption. 
+
+*Statistical Qualification*: While Axis A findings are supported by a large sample 
+matrix (4 SNR levels × 150 utterances), the findings for Axis B and Axis C represent 
+observed trends across sparse, discrete levels (3-4 conditions each). They should be 
+interpreted as directional trends rather than highly robust statistical curves. 
+Furthermore, all feature deviations and error rate increases are methodologically framed 
+as being associated with or co-occurring with specific acoustic conditions, as 
+correlation across these axes does not establish strict causality.
+======================================================================

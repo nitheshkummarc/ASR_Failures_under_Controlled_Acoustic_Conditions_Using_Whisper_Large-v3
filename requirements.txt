@@ -1,0 +1,24 @@
+# =============================================================================
+# requirements.txt — Phase 1 dependencies
+# =============================================================================
+# ASR inference
+faster-whisper
+
+# Audio processing
+librosa
+soundfile
+scipy
+
+# Evaluation metrics
+jiwer
+
+# Data handling
+pandas
+numpy
+
+# Text normalization (number-to-words)
+num2words
+
+# Utilities
+tqdm
+requests
