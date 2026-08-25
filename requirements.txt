@@ -1,24 +1,42 @@
 # =============================================================================
-# requirements.txt — Phase 1 dependencies
+# requirements.txt
 # =============================================================================
-# ASR inference
-faster-whisper
+# ASR inference (CTranslate2 backend)
+faster-whisper==1.2.1
 
-# Audio processing
-librosa
-soundfile
-scipy
+# Audio I/O and DSP
+soundfile==0.14.0
+scipy==1.17.1
+numpy==2.4.6
+#
+# NOTE: librosa is deliberately NOT a dependency. It pulls in numba, whose
+# JIT-emitted .pyd binaries are blocked by AppLocker on the target Windows
+# machine. The phase vocoder (src/augmentation/axis_c_temporal.py) and the
+# Mel/DCT chain (src/features/extractor.py) are hand-written on scipy for
+# exactly that reason — do not reintroduce it.
 
 # Evaluation metrics
-jiwer
+jiwer==4.0.0
 
-# Data handling
-pandas
-numpy
+# Data handling (analysis stage only; inference stages use the stdlib csv
+# module so they can append row-by-row and resume after a crash)
+pandas==3.0.5
 
 # Text normalization (number-to-words)
-num2words
+num2words==0.5.14
+
+# Plotting
+matplotlib==3.11.1
+seaborn==0.13.2
 
 # Utilities
-tqdm
-requests
+tqdm==4.70.0
+requests==2.34.2
+
+# Demo API (not part of the experimental pipeline)
+fastapi==0.141.1
+uvicorn==0.52.0
+
+# Testing (not currently installed in venv/ — `pip install pytest` to run the
+# suite in tests/. Each test file is also runnable directly with plain python.)
+pytest>=8.0

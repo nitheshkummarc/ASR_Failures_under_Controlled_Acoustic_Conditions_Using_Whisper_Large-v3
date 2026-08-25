@@ -1,5 +1,51 @@
+# Virtual environment
 venv/
+.venv/
+
+# Python bytecode
 __pycache__/
 *.pyc
+*.pyo
+*.pyd
+
+# Environment
 .env
+.env.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+Thumbs.db
+Desktop.ini
+.DS_Store
+
+# Testing
 .pytest_cache/
+.coverage
+htmlcov/
+
+# Data — keep the directory structure, not the audio
+data/librispeech_clean/*.wav
+data/degraded/**/*.wav
+data/noise_sources/*.wav
+_raw_download/
+
+# Generated output (regenerable by re-running the pipeline)
+results/*.csv
+results/plots/
+results/test_mode/
+results/.pipeline_checkpoint
+logs/*.log
+
+# Scratch
+scratch/
+
+# Distribution
+*.egg-info/
+dist/
+build/
