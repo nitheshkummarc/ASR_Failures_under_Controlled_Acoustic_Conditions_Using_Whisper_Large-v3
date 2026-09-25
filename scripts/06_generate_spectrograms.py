@@ -21,7 +21,6 @@ import soundfile as sf
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
-import seaborn as sns
 
 from config import (
     DATA_DIR, RESULTS_DIR, AXIS_A_DIR, AXIS_B_DIR, AXIS_C_DIR,
@@ -69,8 +68,13 @@ def plot_condition(y_clean, y_deg, sr, utterance_id, condition_name, plots_dir):
     min_frames = min(mfcc_clean.shape[1], mfcc_deg.shape[1])
     mfcc_diff = np.abs(mfcc_clean[:, :min_frames] - mfcc_deg[:, :min_frames])
 
+    # imshow rather than seaborn.heatmap: seaborn imports pandas, whose compiled
+    # extensions are blocked by the AppLocker policy on the target machine.
+    # origin="lower" keeps coefficient 1 at the bottom, matching the y label.
     plt.figure(figsize=(10, 4))
-    sns.heatmap(mfcc_diff, cmap="magma")
+    plt.imshow(mfcc_diff, cmap="magma", aspect="auto", origin="lower",
+               interpolation="nearest")
+    plt.colorbar(label="|MFCC difference|")
     plt.title(f'MFCC Absolute Deviation Heatmap (Clean vs {condition_name.replace("_", " ").title()})')
     plt.xlabel("Time Frames")
     # The extractor drops C0, so these are c1..c13 — not c0..c12 as the label

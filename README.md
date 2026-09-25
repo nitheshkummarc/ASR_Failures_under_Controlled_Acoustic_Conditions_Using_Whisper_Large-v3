@@ -158,8 +158,15 @@ Stages, in order:
 | 3 | `scripts/03_run_axis_b_c.py` | 900 WAVs, `results/axis_b_results.csv`, `axis_c_results.csv` |
 | 4 | `tools/verify_acoustics.py --all` | PASS/FAIL — 3,750 checks across the corpus |
 | 5 | `scripts/04_run_feature_extraction.py` | `results/feature_deviation.csv` |
-| 6 | `scripts/05_run_analysis.py` | summary charts, `hallucination_audit.csv`, Pearson p-values |
+| 6 | `scripts/05_run_analysis.py` | 9 summary charts, `hallucination_audit.csv`, Pearson p-values |
 | 7 | `scripts/06_generate_spectrograms.py` | per-utterance spectrograms and MFCC heatmaps |
+
+Every axis gets the same three views, so they can be read against each other:
+WER against the clean baseline, a severity curve wherever the axis has a severity
+parameter, and error composition (S/I/D). Axis A sweeps SNR; Axis C sweeps
+speaking rate and silence duration separately, since those are two independent
+parameters rather than one ordered scale; Axis B has a single condition, so it
+gets the composition plot against clean instead of a curve.
 
 A full run is roughly 1 h 45 min on an RTX 3050.
 
@@ -227,6 +234,12 @@ unit standard deviation, which puts ~32 % of a Gaussian's samples outside
 phase-dependent it also breaks the spectral match between café and its SSN
 control, which the entire informational-masking result depends on. See
 `write_noise_source()`.
+
+**No pandas, no seaborn, no librosa.** All three are blocked by the same
+AppLocker policy on the target machine, which rejects JIT- and
+extension-compiled binaries (`DLL load failed while importing timestamps` for
+pandas). Every stage uses the stdlib `csv` module plus numpy, and plots are drawn
+with bare matplotlib.
 
 **No librosa.** The phase vocoder and the entire Mel/DCT chain are written on
 `scipy` and `numpy` directly. Partly academic — this is a signal-processing

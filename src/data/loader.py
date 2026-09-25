@@ -20,13 +20,13 @@ Idempotent: re-running skips completed steps (download, extraction, conversion).
 from src.logger import setup_logger
 logger = setup_logger(__name__)
 
+import csv
 import json
 import tarfile
 from pathlib import Path
 from collections import defaultdict
 
 import numpy as np
-import pandas as pd
 import soundfile as sf
 import requests
 from tqdm import tqdm
@@ -336,10 +336,15 @@ def write_metadata(selected: list, wav_paths: list) -> None:
             "ground_truth_raw": utt["ground_truth_raw"],
         })
 
-    df = pd.DataFrame(records)
+    # stdlib csv rather than pandas: the AppLocker policy on the target machine
+    # blocks pandas' compiled extensions, and this is the only place stage 0
+    # needed it.
     manifest_path = METADATA_DIR / "utterance_manifest.csv"
-    df.to_csv(manifest_path, index=False)
-    logger.info(f"  [SAVED] {manifest_path} ({len(df)} rows)")
+    with open(manifest_path, "w", encoding="utf-8", newline="") as f:
+        writer = csv.DictWriter(f, fieldnames=list(records[0].keys()))
+        writer.writeheader()
+        writer.writerows(records)
+    logger.info(f"  [SAVED] {manifest_path} ({len(records)} rows)")
 
     # Build selection criteria
     criteria = {

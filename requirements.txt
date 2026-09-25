@@ -29,16 +29,18 @@ numpy==2.4.6
 # Evaluation metrics
 jiwer==4.0.0
 
-# Data handling (analysis stage only; inference stages use the stdlib csv
-# module so they can append row-by-row and resume after a crash)
-pandas==3.0.5
+# NOTE: pandas and seaborn were removed. The AppLocker policy on the target
+# machine began blocking pandas' compiled extensions ("DLL load failed while
+# importing timestamps"), which took the analysis stage down entirely -- the same
+# policy that keeps librosa/numba out of the DSP modules. Every stage now uses
+# the stdlib csv module plus numpy, and plots are drawn with bare matplotlib.
+# Do not reintroduce either.
 
 # Text normalization (number-to-words)
 num2words==0.5.14
 
 # Plotting
 matplotlib==3.11.1
-seaborn==0.13.2
 
 # Utilities
 tqdm==4.70.0
