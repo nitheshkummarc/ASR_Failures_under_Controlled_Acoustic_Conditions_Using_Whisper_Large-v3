@@ -108,10 +108,11 @@ file for no benefit.
 
 ---
 
-## 6. Three independent RNG streams
+## 6. Four independent RNG streams
 
-`NoiseSource` keeps `_rng_white`, `_rng_pink` and `_rng_cafe` seeded at 42, 43
-and 44 rather than sharing one generator.
+`NoiseSource` keeps `_rng_white`, `_rng_pink`, `_rng_cafe` and `_rng_ssn` seeded
+at 42, 43, 44 and 45 rather than sharing one generator. The cafe and SSN cursors
+into their shared source buffer are independent for the same reason.
 
 With a single shared generator, the number of draws taken by one noise type
 would shift every subsequent value produced for the others — so adding an SNR
@@ -154,7 +155,7 @@ reveal. A partial resume set is strictly worse than refusing to start.
 
 ## 9. Per-row flush, not batched writes
 
-Every inference stage calls `f.flush()` after each row. At ~2,850 rows the
+Every inference stage calls `f.flush()` after each row. At ~3,450 rows the
 syscall cost is negligible, and it bounds crash loss to a single row.
 
 This is also why the inference stages use the standard-library `csv` module
@@ -216,7 +217,7 @@ The check asserts *at least* the target; exact total length is asserted
 separately.
 
 The script exits non-zero on failure and runs as stage 4 of the pipeline.
-`--all` sweeps the corpus: 3,150 checks, 0 failures.
+`--all` sweeps the corpus: 3,750 checks, 0 failures.
 
 ---
 
@@ -241,7 +242,64 @@ call. Removed.
 
 ---
 
-## 15. What was deliberately left alone
+## 15. SSN is a control, not a fifth condition
+
+Adding speech-shaped noise was not about testing one more masker. Cafe babble
+differs from white noise along two axes simultaneously — spectrum and linguistic
+content — so no comparison between them can attribute the damage to either. SSN
+is the cafe babble with randomised phase: identical magnitude spectrum, no
+structure. That turns one uncontrolled comparison into two controlled ones:
+
+```
+ssn  - white   ->  energetic
+cafe - ssn     ->  informational
+```
+
+Two consequences shaped the implementation.
+
+**It is appended to `NOISE_TYPES`, never inserted.** Stage 2 iterates
+utterance -> noise_type -> snr, advancing RNG streams and source cursors as it
+goes. Inserting a type anywhere but the end shifts every subsequent draw and
+silently changes the audio for the types after it. Appending left all 1,800
+pre-existing mixtures bit-identical.
+
+**The spectral match is asserted, not assumed.** If phase randomisation ever
+stopped preserving the magnitude spectrum, `cafe - ssn` would quietly absorb an
+energetic component and the headline result would be wrong with no symptom.
+`tools/masking_analysis.py` therefore computes a speech-weighted audibility index
+for both and requires agreement; `tests/test_masking.py` asserts the magnitude
+spectrum directly. That check is what caught decision 16.
+
+---
+
+## 16. Noise sources are peak-normalised before writing
+
+The generators normalise to unit standard deviation. Roughly a third of a
+Gaussian's samples then lie outside [-1, 1], and `sf.write(..., PCM_16)` hard
+clips every one of them. The cached `cafe.wav` had 29.9 % of its samples pinned
+to the rails and a crest factor of 1.42 — natural babble is 3-5. The stored
+"babble" was a squared-off caricature of what the generator produced.
+
+The bug was latent for a month because of how the cache is used: the run that
+*creates* the file mixes from the in-memory buffer and is unaffected. Only a
+later run that *loads* the cache gets the distorted version. That is why the
+defect surfaced as an unexplained shift in the cafe numbers on a re-run while
+every other condition reproduced exactly, and why regenerating restored the
+original figures to the digit.
+
+It also broke decision 15: clipping is phase-dependent, so it distorted cafe and
+its phase-randomised control differently and pulled `|ΔSII|` to 0.0172, failing
+the matched-spectrum check that the informational-masking claim rests on. After
+the fix it is 0.0005.
+
+`write_noise_source()` peak-normalises to 0.95 first. Only waveform shape needs
+to survive the round trip — every consumer re-normalises on load and
+`mix_at_target_snr` rescales to the target SNR — so nothing downstream depends on
+the stored level.
+
+---
+
+## 17. What was deliberately left alone
 
 - **`src/api/service.py`** — a demo endpoint, not part of the experiment. It has
   known defects (an unbound `temp_path` in its `finally`, an `async def` handler

@@ -1,0 +1,7 @@
+{
+  "derived_from": "D:\\clg\\SEM-7\\speech\\ASR Failures under Controlled Acoustic Conditions\\data\\noise_sources\\cafe.wav",
+  "method": "rFFT phase randomization (magnitude spectrum preserved)",
+  "seed": 45,
+  "sample_rate": 16000,
+  "n_samples": 1920000
+}

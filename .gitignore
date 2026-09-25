@@ -44,6 +44,7 @@ logs/*.log
 
 # Scratch
 scratch/
+backups/
 
 # Distribution
 *.egg-info/

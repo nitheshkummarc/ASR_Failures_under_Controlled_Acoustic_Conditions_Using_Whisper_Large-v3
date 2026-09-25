@@ -4,6 +4,17 @@
 # ASR inference (CTranslate2 backend)
 faster-whisper==1.2.1
 
+# CUDA runtime for CTranslate2. NOT pulled in by faster-whisper, so without these
+# the GPU path fails at model load — and whisper_engine.py deliberately re-raises
+# a non-OOM failure rather than demoting to CPU, so the pipeline stops instead of
+# silently taking days. config.py adds their bin/ directories to PATH on import,
+# which is why `import config` must precede `import faster_whisper`.
+#   cublas64_12.dll  <- nvidia-cublas-cu12
+#   cudnn64_9.dll    <- nvidia-cudnn-cu12 (CTranslate2 4.x needs cuDNN 9, CUDA 12)
+# CPU-only machines can skip both; set WHISPER_DEVICE = "cpu" in config.py.
+nvidia-cublas-cu12==12.9.2.10
+nvidia-cudnn-cu12==9.26.0.51
+
 # Audio I/O and DSP
 soundfile==0.14.0
 scipy==1.17.1

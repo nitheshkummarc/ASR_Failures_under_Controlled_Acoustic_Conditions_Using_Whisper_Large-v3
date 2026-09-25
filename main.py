@@ -43,15 +43,23 @@ logger = setup_logger("main")
 
 CHECKPOINT_FILE = PROJECT_ROOT / "results" / ".pipeline_checkpoint"
 
+# (stage_name, script, args)
+#
+# Stage 04 runs with --all deliberately. Without it verify_acoustics checks only
+# the single showcase utterance — 25 of the ~3,750 checks, 0.67% of the generated
+# audio — so a generation fault affecting any other utterance passed the stage
+# unnoticed. The full sweep costs a couple of minutes against an hour of
+# inference, and it is the only stage that independently re-derives the
+# degradation parameters from the files on disk.
 STAGES = [
-    ("00_corpus",         "scripts/00_prepare_corpus.py"),
-    ("01_baseline",       "scripts/01_run_baseline.py"),
-    ("02_axis_a",         "scripts/02_run_axis_a.py"),
-    ("03_axis_b_c",       "scripts/03_run_axis_b_c.py"),
-    ("04_verify",         "tools/verify_acoustics.py"),
-    ("05_features",       "scripts/04_run_feature_extraction.py"),
-    ("06_analysis",       "scripts/05_run_analysis.py"),
-    ("07_spectrograms",   "scripts/06_generate_spectrograms.py"),
+    ("00_corpus",         "scripts/00_prepare_corpus.py",           []),
+    ("01_baseline",       "scripts/01_run_baseline.py",             []),
+    ("02_axis_a",         "scripts/02_run_axis_a.py",               []),
+    ("03_axis_b_c",       "scripts/03_run_axis_b_c.py",             []),
+    ("04_verify",         "tools/verify_acoustics.py",              ["--all"]),
+    ("05_features",       "scripts/04_run_feature_extraction.py",   []),
+    ("06_analysis",       "scripts/05_run_analysis.py",             []),
+    ("07_spectrograms",   "scripts/06_generate_spectrograms.py",    []),
 ]
 
 
@@ -119,16 +127,17 @@ def main():
         logger.info("Starting fresh run")
     logger.info("=" * 60)
 
-    for i, (stage_name, script) in enumerate(STAGES, 1):
+    for i, (stage_name, script, stage_args) in enumerate(STAGES, 1):
         if stage_name in completed:
             logger.info(f"[{i}/{len(STAGES)}] ⏭ Skipping {script} (already completed)")
             continue
 
-        logger.info(f"[{i}/{len(STAGES)}] Running {script}...")
+        shown = " ".join([script] + stage_args)
+        logger.info(f"[{i}/{len(STAGES)}] Running {shown}...")
         try:
             # Stream output live so tqdm progress bars are visible
             result = subprocess.run(
-                [sys.executable, "-u", script],
+                [sys.executable, "-u", script, *stage_args],
                 cwd=PROJECT_ROOT,
                 check=True,
             )

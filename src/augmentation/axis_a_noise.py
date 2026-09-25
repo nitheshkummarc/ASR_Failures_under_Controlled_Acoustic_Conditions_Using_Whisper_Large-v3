@@ -78,6 +78,12 @@ DSP PRIMER — Signal-to-Noise Ratio & RMS Energy
                  unintelligible in the mixture — only the "texture" of speech
                  remains, creating realistic babble noise.
                  (Source: MUSAN if available, else synthetic from clean utterances)
+
+   SSN:          Speech-shaped noise — the café babble with randomized phase.
+                 Identical long-term average spectrum, zero linguistic content.
+                 This is the CONTROL condition: café and SSN differ only in
+                 structure, so any WER gap between them is masking that spectral
+                 overlap cannot account for. See src/analysis/masking.py.
 """
 
 from src.logger import setup_logger
@@ -90,7 +96,7 @@ import numpy as np
 import soundfile as sf
 
 from config import (
-    CAFE_NOISE_PATH, LIBRISPEECH_ROOT, TARGET_SR, RANDOM_SEED,
+    CAFE_NOISE_PATH, SSN_NOISE_PATH, LIBRISPEECH_ROOT, TARGET_SR, RANDOM_SEED,
     CAFE_BABBLE_N_SPEAKERS, CAFE_BABBLE_DURATION_S,
 )
 
@@ -241,6 +247,82 @@ def generate_pink_noise(n_samples: int, rng: np.random.Generator) -> np.ndarray:
     return pink
 
 
+def write_noise_source(path, signal: np.ndarray, sr: int) -> None:
+    """
+    Write a noise SOURCE buffer to disk without clipping it.
+
+    The generators normalize to unit standard deviation, which for a roughly
+    Gaussian signal puts about a third of the samples outside [-1, 1]. Handing
+    that straight to soundfile as PCM_16 hard-clips every one of them: the
+    previously stored cafe.wav had 30% of its samples pinned to the rails and a
+    crest factor of 1.42, where natural babble sits around 3-5. The stored
+    "babble" was therefore a squared-off, distorted version of what was
+    generated, and because clipping is phase-dependent it also broke the
+    spectral match between the babble and its phase-randomized SSN control.
+
+    Peak-normalizing first avoids all of it. The absolute level written here is
+    irrelevant downstream — every consumer re-normalizes on load, and
+    mix_at_target_snr rescales the noise to hit the requested SNR — so only the
+    waveform SHAPE needs to survive the round trip.
+    """
+    peak = float(np.max(np.abs(signal)))
+    if peak > 0:
+        signal = signal / peak * 0.95
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    sf.write(str(path), signal, sr, subtype="PCM_16")
+
+
+def generate_speech_shaped_noise(
+    source: np.ndarray,
+    rng: np.random.Generator,
+) -> np.ndarray:
+    """
+    Build speech-shaped noise (SSN) by randomizing the phase of `source`.
+
+    This is the experimental control that separates the two masking mechanisms.
+    A babble masker differs from white noise in two ways at once: its energy sits
+    in the speech bands, and it carries linguistic content. Comparing cafe
+    against white cannot attribute the damage to either cause on its own.
+
+    Phase randomization changes exactly one of them. Taking the rFFT, replacing
+    every phase with a uniform draw on [0, 2*pi) and inverting leaves the
+    magnitude spectrum — and therefore the long-term average spectrum and the
+    total power — unchanged, while destroying the temporal envelope and any
+    intelligible content.
+
+        ssn  - white  ->  energetic masking from spectral overlap
+        cafe - ssn    ->  informational masking (what energy cannot explain)
+
+    DC and, for even-length input, Nyquist must stay real: they have no conjugate
+    partner, so an imaginary part there would be silently discarded by irfft.
+
+    Args:
+        source: 1-D array whose spectrum should be matched (the cafe babble).
+        rng:    numpy random Generator for reproducibility.
+
+    Returns:
+        1-D array, same length as `source`, normalized to unit standard
+        deviation.
+    """
+    n = len(source)
+    spectrum = np.fft.rfft(source)
+    magnitude = np.abs(spectrum)
+
+    random_phase = rng.uniform(0.0, 2.0 * np.pi, size=magnitude.shape)
+    random_phase[0] = 0.0                      # DC stays real
+    if n % 2 == 0:
+        random_phase[-1] = 0.0                 # Nyquist stays real
+
+    ssn = np.fft.irfft(magnitude * np.exp(1j * random_phase), n=n)
+
+    std = np.std(ssn)
+    if std > 1e-10:
+        ssn = ssn / std
+
+    return ssn
+
+
 def generate_cafe_babble(
     clean_wav_paths: list,
     duration_s: float,
@@ -343,10 +425,17 @@ class NoiseSource:
         self._rng_pink = np.random.default_rng(seed + 1)
         self._cafe_seed = seed + 2
         self._rng_cafe = np.random.default_rng(self._cafe_seed)
+        self._ssn_seed = seed + 3
+        self._rng_ssn = np.random.default_rng(self._ssn_seed)
 
-        # Café noise: lazy initialization
+        # Café and SSN noise: lazy initialization. Independent cursors — SSN is
+        # derived from the café buffer, but the two must slide through their
+        # sources separately or the segment each utterance receives would depend
+        # on how many times the OTHER type was drawn.
         self._cafe_source = None
         self._cafe_offset = 0
+        self._ssn_source = None
+        self._ssn_offset = 0
 
     def _ensure_cafe_loaded(self):
         """
@@ -410,8 +499,7 @@ class NoiseSource:
 
         # Cache so subsequent runs load instead of regenerating (and so the
         # exact noise used is auditable on disk).
-        CAFE_NOISE_PATH.parent.mkdir(parents=True, exist_ok=True)
-        sf.write(str(CAFE_NOISE_PATH), self._cafe_source, self.sr, subtype="PCM_16")
+        write_noise_source(CAFE_NOISE_PATH, self._cafe_source, self.sr)
         logger.info(f"  [CAFE] Cached babble to {CAFE_NOISE_PATH}")
 
         # Record which speakers went into the babble, so the disjointness claim
@@ -428,12 +516,53 @@ class NoiseSource:
         provenance_path.write_text(json.dumps(provenance, indent=2), encoding="utf-8")
         logger.info(f"  [CAFE] Wrote provenance to {provenance_path}")
 
+    def _ensure_ssn_loaded(self):
+        """
+        Load or derive the speech-shaped-noise source on first use.
+
+        SSN is derived FROM the café buffer, so the café source is materialised
+        first. That ordering is what guarantees the two maskers share a long-term
+        average spectrum exactly — which is the whole basis of the
+        cafe-minus-ssn informational masking estimate.
+        """
+        if self._ssn_source is not None:
+            return
+
+        if SSN_NOISE_PATH.exists():
+            logger.info(f"  [SSN] Loading speech-shaped noise from: {SSN_NOISE_PATH}")
+            audio, _ = sf.read(str(SSN_NOISE_PATH), dtype="float32")
+            std = np.std(audio)
+            if std > 1e-10:
+                audio = audio / std
+            self._ssn_source = audio
+            return
+
+        self._ensure_cafe_loaded()
+        logger.info("  [SSN] Deriving speech-shaped noise by phase-randomizing the cafe babble...")
+        self._ssn_source = generate_speech_shaped_noise(
+            np.asarray(self._cafe_source, dtype=np.float64), self._rng_ssn
+        )
+
+        write_noise_source(SSN_NOISE_PATH, self._ssn_source, self.sr)
+        logger.info(f"  [SSN] Cached to {SSN_NOISE_PATH}")
+
+        provenance = {
+            "derived_from": str(CAFE_NOISE_PATH),
+            "method": "rFFT phase randomization (magnitude spectrum preserved)",
+            "seed": self._ssn_seed,
+            "sample_rate": self.sr,
+            "n_samples": int(len(self._ssn_source)),
+        }
+        provenance_path = SSN_NOISE_PATH.with_suffix(".provenance.json")
+        provenance_path.write_text(json.dumps(provenance, indent=2), encoding="utf-8")
+        logger.info(f"  [SSN] Wrote provenance to {provenance_path}")
+
     def get_noise(self, noise_type: str, n_samples: int) -> np.ndarray:
         """
         Get a noise segment of the specified type and length.
 
         Args:
-            noise_type: One of "white", "pink", "cafe".
+            noise_type: One of "white", "pink", "cafe", "ssn".
             n_samples:  Number of samples needed (matches utterance length).
 
         Returns:
@@ -447,34 +576,42 @@ class NoiseSource:
 
         elif noise_type == "cafe":
             self._ensure_cafe_loaded()
-            return self._extract_cafe_segment(n_samples)
+            segment, self._cafe_offset = self._extract_segment(
+                self._cafe_source, self._cafe_offset, n_samples
+            )
+            return segment
+
+        elif noise_type == "ssn":
+            self._ensure_ssn_loaded()
+            segment, self._ssn_offset = self._extract_segment(
+                self._ssn_source, self._ssn_offset, n_samples
+            )
+            return segment
 
         else:
             raise ValueError(f"Unknown noise type: {noise_type}")
 
-    def _extract_cafe_segment(self, n_samples: int) -> np.ndarray:
+    @staticmethod
+    def _extract_segment(source: np.ndarray, offset: int, n_samples: int):
         """
-        Extract a segment of café noise of the specified length.
+        Extract `n_samples` from `source` starting at `offset`.
 
-        Uses a sliding offset to ensure different utterances get different
-        segments. If the source runs out, it wraps around.
+        Uses a sliding offset so different utterances get different segments; if
+        the source runs out it wraps back to the start. Returns the segment and
+        the updated offset, so the caller keeps one cursor per noise type rather
+        than sharing a single position across them.
         """
-        source_len = len(self._cafe_source)
+        source_len = len(source)
 
         if n_samples >= source_len:
             # Utterance longer than source: tile the source
             repeats = (n_samples // source_len) + 1
-            tiled = np.tile(self._cafe_source, repeats)
-            return tiled[:n_samples]
+            return np.tile(source, repeats)[:n_samples], offset
 
-        # Extract segment at current offset
-        if self._cafe_offset + n_samples > source_len:
-            # Wrap around
-            self._cafe_offset = 0
+        if offset + n_samples > source_len:
+            offset = 0
 
-        segment = self._cafe_source[self._cafe_offset: self._cafe_offset + n_samples]
-        self._cafe_offset += n_samples
-
-        return segment.copy()
+        segment = source[offset: offset + n_samples]
+        return segment.copy(), offset + n_samples
 
 

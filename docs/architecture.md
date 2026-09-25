@@ -19,10 +19,10 @@ independently resumable.
                                 │ imports pure functions + two classes
 ┌───────────────────────────────▼────────────────────────────────────────┐
 │  LIBRARY   src/                                                        │
-│  augmentation/  mix_at_target_snr, bandpass, phase vocoder, silence    │
+│  augmentation/  mix_at_target_snr, noise gens + SSN, bandpass, vocoder │
 │  inference/     WhisperEngine (stateful), evaluate_metrics, runner     │
 │  features/      extract_all_features                                   │
-│  analysis/      global_wer                                             │
+│  analysis/      global_wer, masking decomposition, hallucination audit │
 │  data/          normalize_text, corpus loader                          │
 └───────────────────────────────┬────────────────────────────────────────┘
                                 │ imports
@@ -61,9 +61,9 @@ through the pipe.
 |---|---|---|---|
 | 0 | `scripts/00_prepare_corpus.py` | LibriSpeech archive | `metadata/utterance_manifest.csv`, 150 WAVs |
 | 1 | `scripts/01_run_baseline.py` | manifest | `results/baseline_results.csv` |
-| 2 | `scripts/02_run_axis_a.py` | manifest | 1,800 WAVs, `results/axis_a_results.csv` |
+| 2 | `scripts/02_run_axis_a.py` | manifest | 2,400 WAVs, `results/axis_a_results.csv` |
 | 3 | `scripts/03_run_axis_b_c.py` | manifest | 900 WAVs, `results/axis_b_results.csv`, `axis_c_results.csv` |
-| 4 | `tools/verify_acoustics.py` | generated WAVs | PASS/FAIL, non-zero exit on failure |
+| 4 | `tools/verify_acoustics.py --all` | generated WAVs | PASS/FAIL over 3,750 checks, non-zero exit on failure |
 | 5 | `scripts/04_run_feature_extraction.py` | result CSVs + WAVs | `results/feature_deviation.csv` |
 | 6 | `scripts/05_run_analysis.py` | all result CSVs | summary charts, logged p-values |
 | 7 | `scripts/06_generate_spectrograms.py` | one utterance's WAVs | per-utterance figures |
@@ -126,7 +126,7 @@ There is no database. Persistence is flat CSV and WAV on the local filesystem.
 |---|---|---|
 | `metadata/utterance_manifest.csv` | 150 | `utterance_id` |
 | `results/baseline_results.csv` | 150 | `utterance_id` |
-| `results/axis_a_results.csv` | 1,800 | `(utterance_id, noise_type, snr_db)` |
+| `results/axis_a_results.csv` | 2,400 | `(utterance_id, noise_type, snr_db)` |
 | `results/axis_b_results.csv` | 150 | `(utterance_id, condition)` |
 | `results/axis_c_results.csv` | 750 | `(utterance_id, condition)` |
 | `results/feature_deviation.csv` | 2,700 | `(utterance_id, condition)` |
@@ -153,7 +153,7 @@ define the reproducibility guarantee:
 - The append-mode CSV handle — concurrent writers would interleave partial rows.
 
 Parallelising Axis A would require per-worker seed derivation and would change
-every generated file. The cost of staying serial is wall-clock: roughly 2,850
+every generated file. The cost of staying serial is wall-clock: roughly 3,450
 sequential Whisper inferences.
 
 ## Error handling

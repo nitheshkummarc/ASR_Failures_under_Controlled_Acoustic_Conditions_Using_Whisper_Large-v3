@@ -78,8 +78,22 @@ RANDOM_SEED = 42
 # =============================================================================
 # 6. AXIS A — ADDITIVE NOISE CONFIGURATION (proposal §3)
 # =============================================================================
-# Noise types: White, Pink, Café  |  SNR levels: 20, 15, 10, 5 dB
-NOISE_TYPES = ["white", "pink", "cafe"]
+# Noise types: White, Pink, Café, SSN  |  SNR levels: 20, 15, 10, 5 dB
+#
+# ORDER IS LOAD-BEARING — APPEND ONLY. scripts/02 iterates
+# utterance -> noise_type -> snr, and the cafe/ssn cursors plus the white/pink
+# RNG streams advance per draw. Inserting a type anywhere but the end would
+# shift every subsequent draw and silently change the audio for the types that
+# follow it, invalidating the committed results.
+#
+# "ssn" (speech-shaped noise) is the EXPERIMENTAL CONTROL that separates the two
+# masking mechanisms. It is the cafe babble with its phase spectrum randomized:
+# byte-for-byte the same long-term average spectrum, but no temporal structure
+# and no linguistic content. See src/analysis/masking.py.
+#
+#   ssn  - white  ->  energetic masking attributable to spectral overlap
+#   cafe - ssn    ->  informational masking (the part energy cannot explain)
+NOISE_TYPES = ["white", "pink", "cafe", "ssn"]
 SNR_LEVELS = [20, 15, 10, 5]       # dB — from mild to severe
 
 # Degraded audio output
@@ -91,6 +105,10 @@ AXIS_C_DIR = DEGRADED_DIR / "axis_c"
 # Noise source files (café noise from MUSAN or synthetic babble)
 NOISE_SOURCES_DIR = PROJECT_ROOT / "data" / "noise_sources"
 CAFE_NOISE_PATH = NOISE_SOURCES_DIR / "cafe.wav"
+
+# Speech-shaped noise: derived from CAFE_NOISE_PATH by phase randomization, so
+# it is always spectrally matched to whatever cafe source is actually in use.
+SSN_NOISE_PATH = NOISE_SOURCES_DIR / "ssn.wav"
 
 # Synthetic café babble parameters (used when MUSAN not available)
 CAFE_BABBLE_N_SPEAKERS = 15        # Number of overlaid speakers

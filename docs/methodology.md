@@ -31,7 +31,7 @@ the global pool.
 
 ## Degradation axes
 
-18 conditions per utterance, plus the clean baseline: **2,850 inference trials**.
+22 conditions per utterance, plus the clean baseline: **3,450 inference trials**.
 
 ### Axis A — Additive noise (parameter: SNR)
 
@@ -66,12 +66,57 @@ should be fabricated.
   that filter tap.
 - **Café babble** — 15 speakers normalised to unit RMS, tiled to length, placed
   at random offsets and summed. With 15 uncorrelated talkers no individual word
-  survives; only speech *texture* remains, which is what makes it an
-  **informational** rather than energetic masker.
+  survives; only speech *texture* remains. Whether that texture actually acts as
+  an informational masker is not assumed here — it is measured, against the SSN
+  control below.
+- **SSN (speech-shaped noise)** — the café babble with its phase spectrum
+  replaced by uniform draws on [0, 2π) and inverse-transformed. This preserves
+  the magnitude spectrum exactly while destroying the temporal envelope and any
+  intelligible content. It exists solely as an experimental control; see
+  *Separating the two masking mechanisms* below.
 
 Café speakers are drawn from a pool **strictly disjoint** from the 150-utterance
 test set, so no utterance can be masked by babble containing itself. The exact
 membership is recorded in `data/noise_sources/cafe.provenance.json`.
+
+**Noise sources are peak-normalised before being written to disk.** The
+generators normalise to unit standard deviation, which places roughly a third of
+a Gaussian's samples outside [−1, 1]; writing that as PCM_16 hard-clips every one
+of them. A previously cached `cafe.wav` had 29.9 % of its samples pinned to the
+rails and a crest factor of 1.42, against 3–5 for natural babble. Because
+clipping is a phase-dependent nonlinearity it distorted the babble and its
+phase-randomised control *differently*, breaking the spectral match the
+informational-masking estimate depends on. Only the waveform shape needs to
+survive the round trip — every consumer re-normalises on load, and
+`mix_at_target_snr` rescales to the target SNR — so the file is written at 0.95
+peak.
+
+### Separating the two masking mechanisms
+
+Noise damages recognition in two distinct ways, and a babble masker exhibits
+both at once:
+
+- **Energetic masking** is peripheral. Noise energy overlaps the speech energy in
+  frequency and swamps it. It is predictable from the spectra alone.
+- **Informational masking** is central. The masker is audible and separable from
+  the target but still interferes, because it competes for the same interpretive
+  machinery. It is *not* predictable from the spectra.
+
+Comparing café against white noise cannot distinguish them, because the two
+differ in spectrum **and** in linguistic content simultaneously. Adding SSN —
+spectrally identical to café, structurally inert — isolates one variable per
+comparison:
+
+```
+ssn  - white   ->  energetic     (energy moved into the speech bands)
+cafe - ssn     ->  informational (same spectrum, linguistic content added)
+```
+
+The decomposition is only valid if café and SSN really are spectrally matched.
+That is asserted rather than assumed: `tools/masking_analysis.py` computes a
+speech-weighted audibility index (a simplified SII, ANSI S3.5-1997 octave-band
+importance weights, ±15 dB dynamic range) for both and requires them to agree.
+Measured: `max |SII(café) − SII(SSN)| = 0.0005`.
 
 ### Axis B — Channel distortion (parameter: bandwidth)
 
@@ -173,22 +218,63 @@ Global WER:
 | Telephonic (300–3400 Hz) | 3.27 % |
 | White 20 / 15 / 10 / 5 dB | 3.53 / 3.89 / 4.25 / **6.28 %** |
 | Pink 20 / 15 / 10 / 5 dB | 3.83 / 4.02 / 3.96 / **4.78 %** |
+| SSN 20 / 15 / 10 / 5 dB | 3.27 / 3.40 / 3.73 / **5.20 %** |
 | Café 20 / 15 / 10 / 5 dB | 2.91 / 3.24 / 4.12 / **9.39 %** |
 | Silence 0.5 s start / 1.0 s mid / 2.0 s mid | 4.12 / 3.40 / 3.53 % |
-| Rate 1.2× / 1.5× | 5.86 / **11.16 %** |
+| Rate 1.2× / 1.5× | 5.86 / **11.19 %** |
 
-**1. Café babble is the worst additive noise.** At 5 dB it reaches 9.39 %,
-versus 6.28 % (white) and 4.78 % (pink) at the *same measured SNR*. Since SNR is
-held constant, the difference cannot be energetic — it is consistent with
-informational masking, where competing linguistic content contends for the same
-attention the target speech needs. Note also that café at 20 dB (2.91 %) sits
-slightly *below* the clean baseline, so the effect is strongly non-linear in SNR.
+Significance is assessed by a paired bootstrap over utterances (4,000 resamples)
+alongside a Wilcoxon signed-rank test. Only **9 of the 22 conditions** are
+significantly worse than clean: white 10/5 dB, pink 5 dB, café 10/5 dB, SSN 5 dB,
+silence-at-start, and both rate conditions. Everything at 20 and 15 dB,
+telephonic, and both mid-utterance silence conditions have intervals straddling
+zero.
+
+**1. Babble damages recognition through two separable mechanisms.** At 5 dB café
+reaches 9.39 %, versus 6.28 % (white) and 4.78 % (pink) at the same measured SNR.
+The naive reading — "SNR is held constant, so the difference cannot be
+energetic" — does not hold, because café and white differ in spectrum as well as
+content. The SSN control settles it:
+
+| SNR | energetic (SSN − white) | informational (café − SSN) |
+|---|---|---|
+| 20 dB | −0.26 | −0.36 |
+| 15 dB | −0.49 | −0.16 |
+| 10 dB | −0.52 | +0.39 |
+| **5 dB** | **−1.08** | **+4.19** |
+| **pooled (600 cells)** | **−0.59** `[−0.99, −0.19]`, p = 0.0008 | **+1.01** `[+0.59, +1.47]`, p = 0.00002 |
+
+Two results follow.
+
+*The energetic term is negative.* Concentrating noise energy in the speech bands
+is **less** damaging than spreading it flat at the same broadband SNR. The
+spectra explain why: the experiment equalises broadband RMS, but recognition
+depends on the SNR where the phonetic information sits. At a nominal 5 dB the
+in-band SNR in the 1–4 kHz consonant region is −1.05 dB for white, +1.63 dB for
+pink and +2.54 dB for SSN — white dumps 87.6 % of its energy above 1 kHz, where
+speech carries only 11.2 % of its own. Pink sitting between white and SSN is the
+same effect at an intermediate degree, and its ranking follows.
+
+*Informational masking is threshold-like.* It is statistically indistinguishable
+from zero at 20, 15 and 10 dB, then accounts for +4.19 pp at 5 dB — about 70 % of
+café's total excess over baseline, with 62 of 150 utterances worse against 12
+better (p < 0.00001). Since café and SSN share a magnitude spectrum to within
+`|ΔSII| = 0.0005` and are mixed at the same verified SNR, that gap cannot be
+energetic.
+
+A caveat on the label: SSN is stationary by construction while babble retains
+some syllabic-rate fluctuation (envelope CV 0.246 against 0.113, with 1.2 % of
+frames more than 6 dB below the median against 0.0 %). The `café − SSN` term is
+therefore strictly *informational plus modulation* masking. Since 15 overlaid
+talkers fill in most of the dips — real speech reaches CV 1.069 and 37.7 % deep
+dips — the modulation contribution is small, but it is not zero and should not
+be described as pure informational masking.
 
 **2. Band-limiting is free.** Discarding everything outside 300–3400 Hz costs
 nothing measurable (3.27 % versus a 3.44 % baseline), so the information the
 model relies on lives inside the telephone band.
 
-**3. The largest single degradation is temporal.** Rate 1.5× yields 11.16 % on
+**3. The largest single degradation is temporal.** Rate 1.5× yields 11.19 % on
 audio containing no added noise whatsoever — a spectrally clean signal, simply
 traversed faster. This points at decoder cross-attention alignment rather than
 the acoustic front end.
@@ -216,44 +302,64 @@ reference:
 
 | condition | rate |
 |---|---|
-| clean baseline | 8.0 % (12/150) |
-| white 20/15/10/5 dB | 7.3 / 8.7 / 8.0 / 4.0 % |
-| pink 20/15/10/5 dB | 12.0 / 13.3 / 8.7 / 8.0 % |
-| telephonic | 8.0 % |
-| silence start / mid | 12.0 / 6.7–7.3 % |
-| rate 1.2× / 1.5× | 2.0 / 0.7 % |
+| clean baseline | 6.7 % (10/150) |
+| white 20/15/10/5 dB | 6.7 / 8.0 / 7.3 / 4.0 % |
+| pink 20/15/10/5 dB | 10.0 / 12.7 / 8.0 / 7.3 % |
+| **SSN 20/15/10/5 dB** | **3.3 / 4.0 / 1.3 / 0.0 %** |
+| telephonic | 6.7 % |
+| silence start / mid | 11.3 / 6.7–7.3 % |
+| rate 1.2× / 1.5× | 2.0 / 0.0 % |
 | **café — all four SNRs** | **0.0 % (0/150)** |
 
-Café babble is the only condition that suppresses the effect completely, at
-every SNR. Its non-stationary, speech-shaped energy leaves no trailing
-low-energy region for the decoder to fill from its prior. Stationary white and
-pink noise do not have this effect, so it is not simply "any added energy".
+Detection is deliberately conservative: a trailing run is stripped only when it
+sits past the reference's final word AND matches a closed, documented list of
+known Whisper closing phrases (`src/analysis/hallucination.py`). A genuine
+mis-transcription of the last few words keeps its errors. The list is fixed
+rather than data-mined, so the correction cannot quietly grow to fit a desired
+result, and it is applied identically to every condition including clean.
+
+Café is the only condition that suppresses the effect completely at every SNR.
+The SSN control shows the cause is *partly but not wholly* spectral: SSN shares
+café's magnitude spectrum exactly and suppresses the phrase substantially
+(3.3–0.0 % against white's 4.0–8.0 %), but only café reaches zero everywhere.
+Filling the trailing silence with speech-shaped energy accounts for most of the
+effect; café's residual temporal structure accounts for the rest. Flat white and
+pink noise barely help at all, so it is not simply "any added energy".
 
 Re-scoring with the trailing phrase stripped removes the anomaly entirely:
 
-|  | as measured | hallucination-free |
+|  | as measured | hallucination-robust |
 |---|---|---|
-| clean baseline | 3.44 % | 2.68 % |
+| clean baseline | 3.44 % | 2.78 % |
 | café 20 dB | 2.91 % | 2.91 % |
-| verdict | café beats clean by 0.52 pp | café is **worse** by 0.23 pp |
+| verdict | café beats clean by 0.52 pp | café is **worse** by 0.13 pp |
 
-A paired Wilcoxon signed-rank test over the 150 utterances confirms the
-direction: as measured, café 20 dB is significantly better than clean
-(p = 0.045); with hallucinations removed the advantage disappears
-(p = 0.244, café worse on 12 utterances and better on 6).
+The full per-condition audit is written to `results/hallucination_audit.csv` by
+stage 6 and plotted as `results/plots/summary/hallucination_analysis.png`. The
+robust figure is a **secondary** metric: `global_wer` remains the reported
+number, because deleting words from a hypothesis before scoring is not standard
+WER and must not masquerade as it.
+
+A paired bootstrap over the 150 utterances shows the apparent advantage was
+never significant to begin with: café 20 dB against clean is −0.52 pp with a 95 %
+interval of [−1.10, +0.03] (Wilcoxon p = 0.045, which does not survive correction
+for the 22 conditions tested). After the hallucination correction the sign
+reverses and café sits +0.13 pp above clean. Two conditions remain marginally
+below the corrected baseline — telephonic (−0.16) and 1.0 s mid-utterance silence
+(−0.10) — and both have intervals comfortably straddling zero.
 
 So the correct claim is **not** "mild café babble improves recognition". It is
 that mild café babble *suppresses end-of-audio hallucination*, and because WER
 charges those hallucinated words as insertions, the suppression shows up as an
 apparent accuracy gain. Underlying recognition is marginally worse, as expected.
 
-**5. Feature deviation does not predict WER.** Across all 1,800 Axis A trials:
+**5. Feature deviation does not predict WER.** Across all 2,400 Axis A trials:
 
 | Feature | Pearson r | p |
 |---|---|---|
-| MFCC MSE | 0.013 | 0.595 |
-| STE MSE | 0.007 | 0.782 |
-| ZCR MSE | 0.019 | 0.421 |
+| MFCC MSE | 0.028 | 0.163 |
+| STE MSE | 0.008 | 0.696 |
+| ZCR MSE | 0.026 | 0.211 |
 
 None significant at α = 0.05. White noise at 5 dB produces enormous MFCC
 deviation but only moderate WER, while time-scaled audio produces near-zero
@@ -273,7 +379,10 @@ non-zero on any failure. It runs as stage 4 of the pipeline.
 | Axis C rate | Output duration versus `input / rate` | ±0.1 s |
 | Axis C silence | Total length, plus longest run of true zeros | ±0.05 s |
 
-`--all` sweeps the whole corpus: **3,150 checks, 0 failures.**
+`--all` sweeps the whole corpus: **3,750 checks, 0 failures.** Stage 4 runs it
+with `--all`; without that flag it would check only the single showcase
+utterance — 25 checks, 0.67 % of the generated audio — and a generation fault
+in any other utterance would pass unnoticed.
 
 Two subtleties the verifier has to account for:
 
@@ -289,33 +398,47 @@ Two subtleties the verifier has to account for:
 
 ## Reproducibility
 
-A complete from-scratch rebuild was performed on 2026-08-21: the corpus archive,
-the 150-utterance selection, the cafe babble, all 2,700 degraded files and all
-2,850 transcriptions were regenerated from nothing but source code.
+A complete from-scratch rebuild was performed on 2026-08-21, and the experiment
+was re-run end to end on 2026-09-25 after the SSN control was added — on
+different hardware, a rebuilt virtual environment and different CUDA library
+versions.
 
-| Artifact | Result |
+| Artifact | 2026-09-25 re-run result |
 |---|---|
 | Utterance selection | 150/150 identical IDs |
 | Clean corpus audio | all 150 bit-identical |
-| White noise mixtures | all 600 bit-identical |
-| Pink noise mixtures | all 600 bit-identical |
-| Telephonic / stretch / silence | all 750 bit-identical |
-| Cafe mixtures | all 600 differ — by design (see below) |
-| Transcriptions | 2,849 / 2,850 identical |
+| Baseline / white / pink WER | identical to 4 decimal places |
+| Telephonic / silence / rate 1.2x WER | identical to 4 decimal places |
+| Cafe WER | identical once the clipping defect was fixed (see below) |
 
-**The cafe source was corrected.** The previously committed `cafe.wav` was shown,
-by exact md5 match against a deliberate reproduction of the removed code path, to
-have been synthesised from the 150 TEST utterances rather than the disjoint pool.
-Fifteen test utterances were therefore masked by babble containing themselves.
-All cafe noise now comes from the 2,553-utterance disjoint pool. The corrected
-figures are 0.1-0.4 points lower at 10 and 5 dB; the ranking is unchanged.
+Reproducing every condition exactly across a hardware and library change is a
+stronger reproducibility result than the seeded-RNG claim alone, because it also
+exercises the decoder.
+
+**The cafe source was corrected (2026-08-21).** The previously committed
+`cafe.wav` was shown, by exact md5 match against a deliberate reproduction of the
+removed code path, to have been synthesised from the 150 TEST utterances rather
+than the disjoint pool. Fifteen test utterances were therefore masked by babble
+containing themselves. All cafe noise now comes from the 2,553-utterance disjoint
+pool.
+
+**A clipping defect was found and fixed (2026-09-25).** The cached `cafe.wav` was
+written at unit standard deviation as PCM_16, clipping 29.9 % of its samples. The
+defect was latent in the original run, which used the freshly generated
+in-memory buffer; it only manifested on a later run that LOADED the cached file,
+which shifted every cafe figure by up to 0.4 pp. Regenerating with peak
+normalisation restored the original numbers exactly (2.91 / 3.24 / 4.12 / 9.39),
+which is what identifies the cache round-trip rather than the generator as the
+culprit. The same defect affected the SSN control and broke its spectral match to
+cafe (`|ΔSII|` 0.0172, now 0.0005).
 
 **Decoding is not bit-deterministic.** One row out of 2,850 (0.035 %) produced a
 different transcript from bit-identical audio — utterance `6313-66129-0005` under
 rate 1.5x. The old decode degenerated into character-level spew (23 errors
 against an 11-word reference, 209 % WER); the new one stayed coherent (8 errors).
 That single row moved the rate-1.5x figure by 0.49 points, from 11.65 % to
-11.16 %.
+11.16 % in that pair of runs. (The 2026-09-25 re-run settled at 11.19 %, a
+further 0.03 from the same instability.)
 
 This is worth stating plainly: **at the failure boundary, beam search is
 metastable.** Non-deterministic GPU reduction order is enough to flip a decode
@@ -338,3 +461,22 @@ exact value. Milder conditions were perfectly stable across the rebuild.
   specific to this configuration; the relative comparisons are the result.
 - Feature deviation is measured only as MSE of MFCC/STE/ZCR. A null correlation
   rules out those specific measures, not all acoustic predictors.
+- **Statistical resolution is ~±0.6 pp.** With 3,056 reference words, only 9 of
+  22 conditions separate from clean at 95 % confidence. Differences below about
+  half a point — including every 20 dB condition and the telephonic result —
+  cannot be resolved by this corpus. Resolving 0.25 pp would need roughly 780
+  utterances.
+- **The `café − SSN` term is informational *plus* modulation masking.** SSN is
+  stationary while babble retains some syllabic fluctuation. The modulation
+  contribution is small (envelope CV 0.246 against 0.113, with no dips deeper
+  than 12 dB in either) but non-zero, so the term is an upper bound on the purely
+  informational component.
+- The energetic/informational split is measured on one masker at one talker
+  count. Babble becomes a more effective informational masker at *low* talker
+  counts, where individual words remain intelligible; 15 talkers sits near the
+  stationary end of that range.
+- The speech-weighted audibility index is a simplified SII: it omits upward
+  spread of masking and the absolute hearing threshold, both of which model a
+  human listener rather than a neural network. It is used here as a
+  spectrum-only predictor and a matched-spectrum validity check, not as an
+  intelligibility prediction.
