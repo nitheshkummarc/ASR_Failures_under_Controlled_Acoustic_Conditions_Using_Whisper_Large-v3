@@ -15,13 +15,13 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 import argparse
-import csv
 
 import jiwer
 
-from config import METADATA_DIR, AXIS_B_DIR, AXIS_B_CONDITION
+from config import AXIS_B_DIR, AXIS_B_CONDITION
 from src.data.text_normalizer import normalize_text
 from src.inference.whisper_engine import WhisperEngine, TranscriptionOOMError
+from src.results_io import read_manifest
 
 
 def transcribe_pass(engine, rows, label):
@@ -48,13 +48,11 @@ def transcribe_pass(engine, rows, label):
 
 
 def main(n_files: int):
-    manifest = METADATA_DIR / "utterance_manifest.csv"
-    if not manifest.exists():
-        print(f"[ERROR] Manifest not found: {manifest}")
+    try:
+        rows = read_manifest()[:n_files]
+    except (FileNotFoundError, RuntimeError) as e:
+        print(f"[ERROR] {e}")
         sys.exit(1)
-
-    with open(manifest, "r", encoding="utf-8") as f:
-        rows = list(csv.DictReader(f))[:n_files]
 
     print("Initializing Whisper Engine...")
     engine = WhisperEngine()

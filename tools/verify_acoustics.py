@@ -19,16 +19,16 @@ import numpy as np
 import soundfile as sf
 from scipy.fftpack import fft
 
-import csv
 
 from config import (
-    DATA_DIR, AXIS_A_DIR, AXIS_B_DIR, AXIS_C_DIR, METADATA_DIR,
+    DATA_DIR, AXIS_A_DIR, AXIS_B_DIR, AXIS_C_DIR,
     NOISE_TYPES, SNR_LEVELS,
     TELEPHONE_LOW_HZ, TELEPHONE_HIGH_HZ,
     STRETCH_RATES, SILENCE_CONFIGS,
     stretch_condition, silence_condition,
     SHOWCASE_UTTERANCE_ID,
 )
+from src.results_io import read_manifest
 
 # Tolerances
 SNR_TOLERANCE_DB = 0.5
@@ -302,13 +302,11 @@ def verify_all() -> Report:
     Quiet by default — only failures print — so a full corpus sweep produces a
     short, readable report instead of ~3,000 PASS lines.
     """
-    manifest_path = METADATA_DIR / "utterance_manifest.csv"
-    if not manifest_path.exists():
-        print(f"[ERROR] Manifest not found: {manifest_path}")
+    try:
+        utterance_ids = [row["utterance_id"] for row in read_manifest()]
+    except (FileNotFoundError, RuntimeError) as e:
+        print(f"[ERROR] {e}")
         sys.exit(1)
-
-    with open(manifest_path, "r", encoding="utf-8") as f:
-        utterance_ids = [row["utterance_id"] for row in csv.DictReader(f)]
 
     print("=" * 60)
     print(f"BATCH ACOUSTIC VERIFICATION — {len(utterance_ids)} utterances")

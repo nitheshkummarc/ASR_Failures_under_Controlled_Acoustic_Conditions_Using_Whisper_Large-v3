@@ -13,13 +13,13 @@ target Windows machine. Do not "simplify" this back to librosa.
 Driven by scripts/03_run_axis_b_c.py.
 """
 
-from src.logger import setup_logger
-logger = setup_logger(__name__)
-
 import numpy as np
 import scipy.signal
 
 from config import TARGET_SR
+from src.logger import setup_logger
+
+logger = setup_logger(__name__)
 
 # =============================================================================
 # DSP Core: Axis C (Temporal - Silence)

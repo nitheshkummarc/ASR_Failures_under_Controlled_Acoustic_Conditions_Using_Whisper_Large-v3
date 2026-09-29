@@ -86,9 +86,6 @@ DSP PRIMER — Signal-to-Noise Ratio & RMS Energy
                  overlap cannot account for. See src/analysis/masking.py.
 """
 
-from src.logger import setup_logger
-logger = setup_logger(__name__)
-
 import json
 from pathlib import Path
 
@@ -99,6 +96,9 @@ from config import (
     CAFE_NOISE_PATH, SSN_NOISE_PATH, LIBRISPEECH_ROOT, TARGET_SR, RANDOM_SEED,
     CAFE_BABBLE_N_SPEAKERS, CAFE_BABBLE_DURATION_S,
 )
+from src.logger import setup_logger
+
+logger = setup_logger(__name__)
 
 
 # =============================================================================

@@ -17,9 +17,6 @@ This module:
 Idempotent: re-running skips completed steps (download, extraction, conversion).
 """
 
-from src.logger import setup_logger
-logger = setup_logger(__name__)
-
 import csv
 import json
 import tarfile
@@ -35,6 +32,9 @@ from config import (
     TARGET_SR, NUM_UTTERANCES, DURATION_MIN, DURATION_MAX,
     LIBRISPEECH_URL, ARCHIVE_NAME, RANDOM_SEED,
 )
+from src.logger import setup_logger
+
+logger = setup_logger(__name__)
 
 
 # =============================================================================

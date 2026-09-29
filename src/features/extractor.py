@@ -15,14 +15,14 @@ Callers (scripts/04_run_feature_extraction.py) use these features to compute
 the MSE deviation between clean reference audio and its degraded counterparts.
 """
 
-from src.logger import setup_logger
-logger = setup_logger(__name__)
-
 from functools import lru_cache
 
 import numpy as np
 import scipy.signal
 import scipy.fftpack
+from src.logger import setup_logger
+
+logger = setup_logger(__name__)
 
 # Frame geometry. These are module-level because extract_all_features() must
 # frame the signal on exactly the same grid the STFT uses, and having two

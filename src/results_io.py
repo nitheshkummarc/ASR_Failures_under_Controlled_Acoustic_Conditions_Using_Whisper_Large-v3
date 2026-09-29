@@ -45,6 +45,32 @@ def write_rows(path, rows: list) -> None:
         writer.writerows(rows)
 
 
+def read_manifest(manifest_path=None) -> list:
+    """
+    Read metadata/utterance_manifest.csv.
+
+    Every stage and tool starts from the manifest, so it is read here rather
+    than in each of them. Defaults to the configured path; pass one explicitly
+    for a test-mode or alternative corpus.
+
+    Raises FileNotFoundError if absent and RuntimeError if present but empty --
+    an empty manifest otherwise surfaces much later as "0 utterances processed".
+    """
+    from config import METADATA_DIR
+
+    path = Path(manifest_path) if manifest_path else METADATA_DIR / "utterance_manifest.csv"
+    if not path.exists():
+        raise FileNotFoundError(
+            f"Manifest not found: {path}\n"
+            f"Run `python scripts/00_prepare_corpus.py` (or `python main.py`) first."
+        )
+
+    rows = read_rows(path)
+    if not rows:
+        raise RuntimeError(f"Manifest {path} contains no utterances.")
+    return rows
+
+
 def word_count(text) -> int:
     """Whitespace word count, used for reference-length weighting."""
     return len(str(text).split())

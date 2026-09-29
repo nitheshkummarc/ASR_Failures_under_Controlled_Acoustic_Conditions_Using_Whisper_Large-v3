@@ -23,9 +23,10 @@ from config import DATA_DIR, METADATA_DIR, RESULTS_DIR
 from src.data.text_normalizer import normalize_text
 from src.inference.whisper_engine import WhisperEngine, TranscriptionOOMError
 from src.inference.runner import (
-    read_manifest, open_result_csv, transcribe_and_score, get_reference, SkipCounter,
+    open_result_csv, transcribe_and_score, get_reference, SkipCounter,
 )
 from src.logger import setup_logger
+from src.results_io import read_manifest
 
 logger = setup_logger("scripts.01_run_baseline")
 

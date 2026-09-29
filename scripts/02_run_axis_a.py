@@ -37,10 +37,11 @@ from config import (
 from src.augmentation.axis_a_noise import mix_at_target_snr, NoiseSource
 from src.inference.whisper_engine import WhisperEngine, TranscriptionOOMError
 from src.inference.runner import (
-    read_manifest, open_result_csv, transcribe_and_score, get_reference,
+    open_result_csv, transcribe_and_score, get_reference,
     write_degraded, SkipCounter,
 )
 from src.logger import setup_logger
+from src.results_io import read_manifest
 
 logger = setup_logger("scripts.02_run_axis_a")
 

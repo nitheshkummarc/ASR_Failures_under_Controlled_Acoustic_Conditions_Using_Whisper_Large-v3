@@ -10,13 +10,13 @@ the AppLocker policy on the target Windows machine.
 Driven by scripts/03_run_axis_b_c.py.
 """
 
-from src.logger import setup_logger
-logger = setup_logger(__name__)
-
 import numpy as np
 import scipy.signal
 
 from config import TELEPHONE_LOW_HZ, TELEPHONE_HIGH_HZ, TELEPHONE_FILTER_ORDER
+from src.logger import setup_logger
+
+logger = setup_logger(__name__)
 
 
 # =============================================================================

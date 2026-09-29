@@ -119,28 +119,6 @@ def transcribe_and_score(engine, wav_path: Path, reference: str) -> dict:
     }
 
 
-def read_manifest(manifest_path: Path) -> list:
-    """
-    Read the utterance manifest, failing loudly if it is missing.
-
-    All three inference stages need this; previously only stage 01 checked, so
-    stages 02 and 03 died with a bare traceback instead of an actionable message.
-    """
-    if not manifest_path.exists():
-        raise FileNotFoundError(
-            f"Manifest not found: {manifest_path}\n"
-            f"Run `python scripts/00_prepare_corpus.py` (or `python main.py`) first."
-        )
-
-    with open(manifest_path, "r", encoding="utf-8") as f:
-        rows = list(csv.DictReader(f))
-
-    if not rows:
-        raise RuntimeError(f"Manifest {manifest_path} contains no utterances.")
-
-    return rows
-
-
 def get_reference(row: dict, utterance_id: str) -> Optional[str]:
     """
     Pull the normalized ground truth from a manifest row.

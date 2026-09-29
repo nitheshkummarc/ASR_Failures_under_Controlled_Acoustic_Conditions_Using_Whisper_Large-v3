@@ -31,10 +31,11 @@ from src.augmentation.axis_b_channel import apply_telephonic_bandpass
 from src.augmentation.axis_c_temporal import time_stretch_phase_vocoder, insert_silence
 from src.inference.whisper_engine import WhisperEngine, TranscriptionOOMError
 from src.inference.runner import (
-    read_manifest, open_result_csv, transcribe_and_score, get_reference,
+    open_result_csv, transcribe_and_score, get_reference,
     write_degraded, SkipCounter,
 )
 from src.logger import setup_logger
+from src.results_io import read_manifest
 
 logger = setup_logger("scripts.03_run_axis_b_c")
 

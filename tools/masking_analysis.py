@@ -36,7 +36,7 @@ import numpy as np
 import soundfile as sf
 
 from config import (
-    DATA_DIR, METADATA_DIR, RESULTS_DIR, TARGET_SR,
+    DATA_DIR, RESULTS_DIR, TARGET_SR,
     CAFE_NOISE_PATH, SSN_NOISE_PATH, NOISE_TYPES, SNR_LEVELS, RANDOM_SEED,
 )
 from src.analysis.masking import (
@@ -44,7 +44,7 @@ from src.analysis.masking import (
     decompose_masking, paired_significance,
 )
 from src.analysis.metrics import global_wer
-from src.results_io import error_count, read_rows, word_count
+from src.results_io import error_count, read_manifest, read_rows, word_count, write_rows
 from src.augmentation.axis_a_noise import generate_white_noise, generate_pink_noise
 
 
@@ -57,13 +57,11 @@ def load_speech_reference(n_utterances: int) -> np.ndarray:
     of utterances across speakers converge on the corpus spectrum, which is what
     the band analysis should be measured against.
     """
-    manifest = METADATA_DIR / "utterance_manifest.csv"
-    if not manifest.exists():
-        print(f"[ERROR] Manifest not found: {manifest}. Run the pipeline first.")
+    try:
+        uids = [row["utterance_id"] for row in read_manifest()][:n_utterances]
+    except (FileNotFoundError, RuntimeError) as e:
+        print(f"[ERROR] {e}")
         sys.exit(1)
-
-    with open(manifest, "r", encoding="utf-8") as f:
-        uids = [row["utterance_id"] for row in csv.DictReader(f)][:n_utterances]
 
     chunks = []
     for uid in uids:
@@ -295,10 +293,7 @@ def main(n_utterances: int, test_mode: bool) -> None:
     if rows:
         out_csv = out_dir / "masking_decomposition.csv"
         out_csv.parent.mkdir(parents=True, exist_ok=True)
-        with open(out_csv, "w", encoding="utf-8", newline="") as f:
-            writer = csv.DictWriter(f, fieldnames=list(rows[0].keys()))
-            writer.writeheader()
-            writer.writerows(rows)
+        write_rows(out_csv, rows)
         print(f"\nSaved decomposition to {out_csv}")
 
 
