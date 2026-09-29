@@ -51,4 +51,23 @@ backups/
 dist/
 build/
 
+# Node toolchain used only to build the slide deck. package.json is tracked so
+# the dependency is recorded; the installed tree is not.
+node_modules/
+
+# Deliverables and working notes kept out of version control by choice
 CLAUDE.md
+Speech_FinalPJT_eval.pdf
+report/
+
+# LaTeX build products, in case a report is ever compiled in-tree
+*.aux
+*.bbl
+*.blg
+*.fdb_latexmk
+*.fls
+*.lof
+*.lot
+*.out
+*.synctex.gz
+*.toc

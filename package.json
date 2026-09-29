@@ -1,0 +1,6 @@
+{
+  "dependencies": {
+    "pdf-poppler": "^0.2.3",
+    "pptxgenjs": "^4.0.1"
+  }
+}
