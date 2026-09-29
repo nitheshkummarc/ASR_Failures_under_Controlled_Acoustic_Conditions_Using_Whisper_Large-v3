@@ -188,11 +188,14 @@ Stages, in order:
 | 3 | `scripts/03_run_axis_b_c.py` | 900 WAVs, `results/axis_b_results.csv`, `axis_c_results.csv` |
 | 4 | `tools/verify_acoustics.py --all` | PASS/FAIL — 3,750 checks across the corpus |
 | 5 | `scripts/04_run_feature_extraction.py` | `results/feature_deviation.csv` |
-| 6 | `scripts/05_run_analysis.py` | 10 summary charts, `hallucination_audit.csv`, `masking_decomposition.csv`, correlations |
+| 6 | `scripts/05_run_analysis.py` | 12 summary charts, `hallucination_audit.csv`, `masking_decomposition.csv`, correlations |
 | 7 | `scripts/06_generate_spectrograms.py` | per-utterance spectrograms and MFCC heatmaps |
 
 `masking_decomposition.png` carries the headline result: the four maskers as
 degradation curves beside the signed energetic/informational split per SNR.
+`all_conditions_overview.png` puts all 22 conditions and the baseline on one
+scale, raw against hallucination-robust. Every bar and point is labelled with
+its value, since several conditions sit within 0.2 pp of the baseline.
 
 Every axis gets the same three views, so they can be read against each other:
 WER against the clean baseline, a severity curve wherever the axis has a severity
@@ -237,6 +240,7 @@ src/             Importable library — no CLI, no side effects beyond logging
   inference/     Whisper wrapper, jiwer scoring, shared stage plumbing
   features/      Hand-written STE / ZCR / log-Mel / MFCC extraction
   analysis/      Corpus WER, masking decomposition, hallucination audit
+  results_io.py  Shared result-CSV reading/writing
   data/          Corpus builder, text normalization
   api/           FastAPI demo (not part of the experiment)
 

@@ -9,7 +9,7 @@ that silently produced duplicate CSV rows.
 
 import csv
 from pathlib import Path
-from typing import Callable, Iterable, Optional, Set
+from typing import Callable, Optional, Set
 
 import soundfile as sf
 

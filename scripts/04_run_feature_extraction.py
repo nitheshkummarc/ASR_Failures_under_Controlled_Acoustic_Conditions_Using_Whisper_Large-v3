@@ -33,6 +33,7 @@ from tqdm import tqdm
 
 from config import DATA_DIR, RESULTS_DIR, AXIS_A_DIR, AXIS_B_DIR, AXIS_C_DIR
 from src.features.extractor import extract_all_features
+from src.results_io import read_rows
 from src.logger import setup_logger
 
 logger = setup_logger("scripts.04_run_feature_extraction")
@@ -48,11 +49,6 @@ OUTPUT_FIELDS = [
 ]
 
 
-def read_csv_to_list(path: Path) -> list:
-    with open(path, "r", encoding="utf-8") as f:
-        return list(csv.DictReader(f))
-
-
 def build_work_list(out_dir: Path, axis_a_dir: Path, axis_b_dir: Path, axis_c_dir: Path) -> list:
     """
     Reconstruct the set of (clean, degraded) pairs from the result CSVs.
@@ -60,9 +56,9 @@ def build_work_list(out_dir: Path, axis_a_dir: Path, axis_b_dir: Path, axis_c_di
     The result CSVs are used as the work-list — not the manifests — which is why
     the record count equals the number of successfully transcribed rows.
     """
-    df_a = read_csv_to_list(out_dir / "axis_a_results.csv")
-    df_b = read_csv_to_list(out_dir / "axis_b_results.csv")
-    df_c = read_csv_to_list(out_dir / "axis_c_results.csv")
+    df_a = read_rows(out_dir / "axis_a_results.csv")
+    df_b = read_rows(out_dir / "axis_b_results.csv")
+    df_c = read_rows(out_dir / "axis_c_results.csv")
 
     records = []
 

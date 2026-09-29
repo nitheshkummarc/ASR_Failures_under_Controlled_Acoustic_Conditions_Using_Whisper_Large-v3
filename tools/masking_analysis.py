@@ -44,6 +44,7 @@ from src.analysis.masking import (
     decompose_masking, paired_significance,
 )
 from src.analysis.metrics import global_wer
+from src.results_io import error_count, read_rows, word_count
 from src.augmentation.axis_a_noise import generate_white_noise, generate_pink_noise
 
 
@@ -177,10 +178,8 @@ def behavioural_report(out_dir: Path) -> list:
               f"behavioural decomposition. Run stages 01 and 02 first.")
         return []
 
-    with open(baseline_path, "r", encoding="utf-8") as f:
-        baseline_wer = global_wer(list(csv.DictReader(f)))
-    with open(axis_a_path, "r", encoding="utf-8") as f:
-        axis_a = list(csv.DictReader(f))
+    baseline_wer = global_wer(read_rows(baseline_path))
+    axis_a = read_rows(axis_a_path)
 
     print("\n" + "=" * 78)
     print("5. WER DECOMPOSITION — energetic vs informational")
@@ -237,10 +236,8 @@ def behavioural_report(out_dir: Path) -> list:
         by_y = {r["utterance_id"]: r for r in rows_y}
         diffs, words = [], []
         for uid in sorted(set(by_x) & set(by_y)):
-            ex = sum(int(by_x[uid][f]) for f in ("substitutions", "insertions", "deletions"))
-            ey = sum(int(by_y[uid][f]) for f in ("substitutions", "insertions", "deletions"))
-            diffs.append(ex - ey)
-            words.append(len(str(by_y[uid]["ground_truth"]).split()))
+            diffs.append(error_count(by_x[uid]) - error_count(by_y[uid]))
+            words.append(word_count(by_y[uid]["ground_truth"]))
         return diffs, words
 
     print("\n" + "=" * 78)

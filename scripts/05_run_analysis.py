@@ -27,7 +27,6 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 import argparse
-import csv
 from collections import defaultdict
 
 import numpy as np
@@ -37,11 +36,12 @@ import matplotlib.pyplot as plt
 from scipy.stats import pearsonr, spearmanr
 
 from config import (
-    RESULTS_DIR, SNR_LEVELS, NOISE_TYPES, AXIS_B_CONDITION,
+    RESULTS_DIR, SNR_LEVELS, NOISE_TYPES,
     STRETCH_RATES, SILENCE_CONFIGS, stretch_condition, silence_condition,
 )
 from src.analysis.masking import decompose_masking
 from src.analysis.metrics import global_wer
+from src.results_io import read_rows, write_rows
 from src.analysis.hallucination import hallucination_rate, robust_global_wer
 from src.logger import setup_logger
 
@@ -62,19 +62,6 @@ BASELINE_COLOUR = "black"
 # =============================================================================
 # CSV helpers (replacing the pandas layer)
 # =============================================================================
-
-def read_csv(path: Path) -> list:
-    with open(path, "r", encoding="utf-8") as f:
-        return list(csv.DictReader(f))
-
-
-def write_csv(path: Path, rows: list) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with open(path, "w", encoding="utf-8", newline="") as f:
-        writer = csv.DictWriter(f, fieldnames=list(rows[0].keys()))
-        writer.writeheader()
-        writer.writerows(rows)
-
 
 def group_by(rows: list, key) -> dict:
     out = defaultdict(list)
@@ -101,10 +88,18 @@ def axis_a_cell(rows: list, noise: str, snr: int) -> list:
 # =============================================================================
 
 def plot_condition_bars(labels, values, baseline_wer, title, out_path, colours=None):
-    """WER per condition with the clean baseline drawn as a reference line."""
+    """
+    WER per condition, with the clean baseline as a reference line.
+
+    Bars carry their value as text. Several conditions sit within 0.2 pp of the
+    baseline, which is not readable off the axis alone.
+    """
     fig, ax = plt.subplots(figsize=(max(6, 1.1 * len(labels) + 2), 6))
-    ax.bar(range(len(labels)), values,
-           color=colours or ["#4c72b0"] * len(labels))
+    bars = ax.bar(range(len(labels)), values,
+                  color=colours or ["#4c72b0"] * len(labels))
+    for bar, value in zip(bars, values):
+        ax.text(bar.get_x() + bar.get_width() / 2, value,
+                f"{value:.2f}", ha="center", va="bottom", fontsize=9)
     ax.axhline(baseline_wer, color=BASELINE_COLOUR, linestyle="--",
                label=f"Clean baseline = {baseline_wer:.2f}%")
     ax.set_xticks(range(len(labels)))
@@ -144,6 +139,12 @@ def plot_error_composition(labels, totals, title, out_path):
     for f in fields:
         ax.bar(range(len(labels)), pct[f], bottom=bottom,
                label=f.capitalize(), color=ERROR_COLOURS[f])
+        # Percentage inside each segment. Segments under 4% are left unlabelled;
+        # there is no room for the text.
+        for i, (value, base) in enumerate(zip(pct[f], bottom)):
+            if value >= 4.0:
+                ax.text(i, base + value / 2, f"{value:.1f}", ha="center",
+                        va="center", fontsize=8, color="white")
         bottom += np.array(pct[f])
 
     ax.set_xticks(range(len(labels)))
@@ -173,6 +174,11 @@ def plot_severity_curve(ax, x, series, baseline_wer, xlabel, title, invert_x=Fal
     for name, entry in series.items():
         xs, values, colour = entry if len(entry) == 3 else (x, entry[0], entry[1])
         ax.plot(xs, values, marker="o", label=name, color=colour)
+        for xi, value in zip(xs, values):
+            if value is None or (isinstance(value, float) and np.isnan(value)):
+                continue
+            ax.annotate(f"{value:.2f}", (xi, value), textcoords="offset points",
+                        xytext=(0, 7), ha="center", fontsize=8, color=colour)
     ax.axhline(baseline_wer, color=BASELINE_COLOUR, linestyle="--",
                label=f"Clean baseline = {baseline_wer:.2f}%")
     ax.set_xticks(x)
@@ -201,11 +207,11 @@ def run_analysis(test_mode: bool):
     plots_dir.mkdir(parents=True, exist_ok=True)
 
     try:
-        base = read_csv(out_dir / "baseline_results.csv")
-        rows_a = read_csv(out_dir / "axis_a_results.csv")
-        rows_b = read_csv(out_dir / "axis_b_results.csv")
-        rows_c = read_csv(out_dir / "axis_c_results.csv")
-        feat = read_csv(out_dir / "feature_deviation.csv")
+        base = read_rows(out_dir / "baseline_results.csv")
+        rows_a = read_rows(out_dir / "axis_a_results.csv")
+        rows_b = read_rows(out_dir / "axis_b_results.csv")
+        rows_c = read_rows(out_dir / "axis_c_results.csv")
+        feat = read_rows(out_dir / "feature_deviation.csv")
     except FileNotFoundError as e:
         logger.error(f"Could not find result CSVs: {e}")
         sys.exit(1)
@@ -248,7 +254,7 @@ def run_analysis(test_mode: bool):
         for cond, group in sorted(group_by(rows, lambda r: r["condition"]).items()):
             audit(str(cond), group)
 
-    write_csv(out_dir / "hallucination_audit.csv", halluc_rows)
+    write_rows(out_dir / "hallucination_audit.csv", halluc_rows)
     logger.info(f"Saved hallucination audit to {out_dir / 'hallucination_audit.csv'}")
 
     still_below = [r["condition"] for r in halluc_rows[1:]
@@ -294,6 +300,9 @@ def run_analysis(test_mode: bool):
         values = [global_wer(axis_a_cell(rows_a, noise, s)) for s in snrs_desc]
         offsets = [x + (i - (len(NOISE_TYPES) - 1) / 2) * width for x in range(len(snrs_desc))]
         ax.bar(offsets, values, width, label=noise, color=NOISE_COLOURS.get(noise))
+        for xi, value in zip(offsets, values):
+            ax.text(xi, value, f"{value:.2f}", ha="center", va="bottom",
+                    fontsize=7, rotation=90)
     ax.axhline(baseline_wer, color=BASELINE_COLOUR, linestyle="--",
                label=f"Clean baseline = {baseline_wer:.2f}%")
     ax.set_xticks(range(len(snrs_desc)))
@@ -305,6 +314,18 @@ def run_analysis(test_mode: bool):
     fig.tight_layout()
     fig.savefig(plots_dir / "clean_vs_axis_a.png", dpi=300, bbox_inches="tight")
     plt.close(fig)
+
+    # ---- A4. Error composition for every Axis A cell ----
+    # All 16 noise x SNR cells, where A2 covers only the worst SNR. Shows how the
+    # error shape moves down the SNR range: cafe's insertion share stays flat,
+    # white's collapses.
+    cells = [(n, s) for n in NOISE_TYPES for s in snrs_desc if axis_a_cell(rows_a, n, s)]
+    plot_error_composition(
+        [f"{n} {s}dB" for n, s in cells],
+        [error_totals(axis_a_cell(rows_a, n, s)) for n, s in cells],
+        "Axis A — error composition, every noise type and SNR",
+        plots_dir / "error_distribution_axis_a_all.png",
+    )
 
     # =========================================================================
     # AXIS B — channel
@@ -424,14 +445,9 @@ def run_analysis(test_mode: bool):
     # =========================================================================
     # Masking decomposition figure
     #
-    # This is the headline result and it had no figure — it existed only as a
-    # CSV and a terminal table, while every lesser finding had a plot. It is
-    # drawn here rather than in tools/masking_analysis.py so it regenerates with
-    # the pipeline like everything else.
-    #
-    # Skipped silently when the SSN control is absent: without it the
-    # decomposition is undefined, and an older results directory should still
-    # produce the rest of the figures.
+    # Drawn here rather than in tools/masking_analysis.py so it regenerates with
+    # the pipeline. Skipped when the SSN control is absent -- the decomposition
+    # is undefined without it, and the remaining figures should still be built.
     # =========================================================================
     if "ssn" in NOISE_TYPES and any(axis_a_cell(rows_a, "ssn", s) for s in SNR_LEVELS):
         decomp = []
@@ -462,8 +478,12 @@ def run_analysis(test_mode: bool):
         # Right: the decomposition itself, as signed bars.
         x = np.arange(len(snrs_desc))
         width = 0.38
-        energetic = [d[1]["energetic_wer"] or 0.0 for d in decomp]
-        informational = [d[1]["informational_wer"] or 0.0 for d in decomp]
+        # np.nan, not 0.0, for a missing term: `or 0.0` would draw a missing
+        # measurement as a zero-height bar, which reads as "measured, no effect".
+        energetic = [np.nan if d[1]["energetic_wer"] is None else d[1]["energetic_wer"]
+                     for d in decomp]
+        informational = [np.nan if d[1]["informational_wer"] is None else d[1]["informational_wer"]
+                         for d in decomp]
         ax_right.bar(x - width / 2, energetic, width,
                      label="energetic  (ssn − white)", color="#2ca02c")
         ax_right.bar(x + width / 2, informational, width,
@@ -475,18 +495,18 @@ def run_analysis(test_mode: bool):
         ax_right.set_ylabel("WER contribution (percentage points)")
         ax_right.set_title("Masking decomposition\n(positive = adds errors)")
         ax_right.legend()
-        for xi, value in zip(x - width / 2, energetic):
-            ax_right.text(xi, value, f"{value:+.2f}", ha="center",
-                          va="bottom" if value >= 0 else "top", fontsize=8)
-        for xi, value in zip(x + width / 2, informational):
-            ax_right.text(xi, value, f"{value:+.2f}", ha="center",
-                          va="bottom" if value >= 0 else "top", fontsize=8)
+        for offset, values in ((-width / 2, energetic), (width / 2, informational)):
+            for xi, value in zip(x + offset, values):
+                if np.isnan(value):
+                    continue
+                ax_right.text(xi, value, f"{value:+.2f}", ha="center",
+                              va="bottom" if value >= 0 else "top", fontsize=8)
 
         fig.tight_layout()
         fig.savefig(plots_dir / "masking_decomposition.png", dpi=300, bbox_inches="tight")
         plt.close(fig)
 
-        write_csv(out_dir / "masking_decomposition.csv", [{
+        write_rows(out_dir / "masking_decomposition.csv", [{
             "snr_db": snr,
             "baseline_wer": round(baseline_wer, 4),
             **{f"wer_{n}": round(wers[n], 4) for n in NOISE_TYPES if n in wers},
@@ -502,6 +522,41 @@ def run_analysis(test_mode: bool):
             )
     else:
         logger.info("SSN control absent — skipping the masking decomposition figure.")
+
+    # =========================================================================
+    # Every condition on one scale
+    #
+    # The per-axis figures each have their own y-scale, so conditions cannot be
+    # compared across them. This plots all 22 conditions plus the baseline
+    # together, raw against hallucination-robust.
+    # =========================================================================
+    ordered = sorted(halluc_rows[1:], key=lambda r: r["raw_wer"])
+    labels = [r["condition"] for r in ordered]
+    positions = np.arange(len(labels))
+    bar_w = 0.4
+
+    fig, ax = plt.subplots(figsize=(max(10, 0.62 * len(labels) + 3), 7))
+    raw_bars = ax.bar(positions - bar_w / 2, [r["raw_wer"] for r in ordered],
+                      bar_w, label="WER as measured", color="#b0b8c4")
+    rob_bars = ax.bar(positions + bar_w / 2, [r["robust_wer"] for r in ordered],
+                      bar_w, label="WER, hallucinations removed", color="#2f3b47")
+    ax.axhline(baseline_wer, color=BASELINE_COLOUR, linestyle="--",
+               label=f"clean baseline (raw) = {baseline_wer:.2f}%")
+    ax.axhline(base_robust, color="crimson", linestyle=":",
+               label=f"clean baseline (robust) = {base_robust:.2f}%")
+    for bars in (raw_bars, rob_bars):
+        for bar in bars:
+            ax.text(bar.get_x() + bar.get_width() / 2, bar.get_height(),
+                    f"{bar.get_height():.2f}", ha="center", va="bottom",
+                    fontsize=7, rotation=90)
+    ax.set_xticks(positions)
+    ax.set_xticklabels(labels, rotation=45, ha="right", fontsize=8)
+    ax.set_ylabel("Global Word Error Rate (WER) %")
+    ax.set_title("Every condition, ordered by measured WER")
+    ax.legend()
+    fig.tight_layout()
+    fig.savefig(plots_dir / "all_conditions_overview.png", dpi=300, bbox_inches="tight")
+    plt.close(fig)
 
     # =========================================================================
     # Statistical validation

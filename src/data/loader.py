@@ -23,7 +23,6 @@ logger = setup_logger(__name__)
 import csv
 import json
 import tarfile
-from pathlib import Path
 from collections import defaultdict
 
 import numpy as np

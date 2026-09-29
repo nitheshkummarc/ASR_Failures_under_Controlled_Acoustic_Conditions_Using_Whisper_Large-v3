@@ -54,6 +54,7 @@ from typing import Mapping, Sequence
 
 import numpy as np
 import scipy.signal
+from scipy.stats import wilcoxon
 
 # ANSI S3.5-1997 octave-band importance weights. These say how much each octave
 # contributes to intelligibility: the 1-4 kHz region carrying consonant place
@@ -277,26 +278,20 @@ def paired_significance(
     `n_worse`, `n_better`, `bootstrap_significant`, `wilcoxon_significant`
     and `verdict` — one of "significant", "not significant" or "disputed".
     """
-    import numpy as _np
-
-    diffs = _np.asarray(list(diffs), dtype=float)
-    ref_words = _np.asarray(list(ref_words), dtype=float)
+    diffs = np.asarray(list(diffs), dtype=float)
+    ref_words = np.asarray(list(ref_words), dtype=float)
 
     if diffs.size == 0 or ref_words.sum() == 0:
         return {"diff_pp": 0.0, "ci_low": 0.0, "ci_high": 0.0, "wilcoxon_p": 1.0,
                 "n_worse": 0, "n_better": 0, "bootstrap_significant": False,
                 "wilcoxon_significant": False, "verdict": "not significant"}
 
-    rng = _np.random.default_rng(seed)
+    rng = np.random.default_rng(seed)
     idx = rng.integers(0, diffs.size, (n_boot, diffs.size))
     boots = diffs[idx].sum(axis=1) / ref_words[idx].sum(axis=1) * 100.0
-    lo, hi = (float(v) for v in _np.percentile(boots, [2.5, 97.5]))
+    lo, hi = (float(v) for v in np.percentile(boots, [2.5, 97.5]))
 
-    if _np.any(diffs != 0):
-        from scipy.stats import wilcoxon
-        p = float(wilcoxon(diffs).pvalue)
-    else:
-        p = 1.0
+    p = float(wilcoxon(diffs).pvalue) if np.any(diffs != 0) else 1.0
 
     boot_sig = lo > 0 or hi < 0
     wilcoxon_sig = p < 0.05

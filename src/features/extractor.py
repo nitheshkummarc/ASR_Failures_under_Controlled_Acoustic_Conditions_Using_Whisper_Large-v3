@@ -162,6 +162,16 @@ def extract_mel_spec_and_mfcc(
     C0 (overall frame energy) is DROPPED and the returned coefficients are
     c1..c13, not c0..c12.
     """
+    # Without this the short-signal case reaches scipy and fails with
+    # "noverlap must be less than nperseg", which does not name the real problem.
+    # frame_signal() already handles the same case. Unreachable from the 3-15 s
+    # corpus; this guards callers outside the pipeline.
+    if len(y) < n_fft:
+        raise ValueError(
+            f"Signal is {len(y)} samples; the STFT needs at least n_fft={n_fft} "
+            f"({n_fft / sr:.3f}s at {sr} Hz)."
+        )
+
     # 1. Pre-emphasis. This rebinds `y` locally, so the caller's array is
     #    untouched — which is why extract_all_features() computes STE/ZCR on the
     #    raw signal while MFCCs come from the pre-emphasized one.

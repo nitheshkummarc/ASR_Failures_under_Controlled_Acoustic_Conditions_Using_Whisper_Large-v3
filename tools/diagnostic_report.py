@@ -26,11 +26,7 @@ import jiwer
 from config import RESULTS_DIR
 from src.analysis.metrics import global_wer, mean_utterance_wer
 from src.data.text_normalizer import normalize_text
-
-
-def read_csv(path):
-    with open(path, "r", encoding="utf-8") as f:
-        return list(csv.DictReader(f))
+from src.results_io import read_rows
 
 
 def summarize(label, rows):
@@ -55,10 +51,10 @@ def main():
 
     print("\n--- 2. WER BY CONDITION (mean-of-ratios vs corpus-level) ---")
 
-    base_data = read_csv(baseline_path)
+    base_data = read_rows(baseline_path)
     summarize("BASELINE                ", base_data)
 
-    a_data = read_csv(axis_a_path)
+    a_data = read_rows(axis_a_path)
     a_grouped = defaultdict(list)
     for r in a_data:
         a_grouped[(r["noise_type"], int(float(r["snr_db"])))].append(r)
@@ -67,7 +63,7 @@ def main():
 
     for path in (axis_b_path, axis_c_path):
         grouped = defaultdict(list)
-        for r in read_csv(path):
+        for r in read_rows(path):
             grouped[r["condition"]].append(r)
         for cond in sorted(grouped):
             summarize(f"{cond:<24}", grouped[cond])

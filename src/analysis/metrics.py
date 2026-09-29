@@ -55,24 +55,6 @@ def global_wer(rows: Iterable[Mapping]) -> float:
     return (total_errors / total_words) * 100.0
 
 
-def global_wer_df(df) -> float:
-    """
-    Same metric, but for a pandas DataFrame — avoids a per-row Python loop over
-    the error columns while keeping the result identical to global_wer().
-    """
-    if len(df) == 0:
-        return 0.0
-
-    total_words = sum(count_reference_words(t) for t in df["ground_truth"])
-    if total_words == 0:
-        return 0.0
-
-    total_errors = (
-        df["substitutions"].sum() + df["deletions"].sum() + df["insertions"].sum()
-    )
-    return (total_errors / total_words) * 100.0
-
-
 def mean_utterance_wer(rows: Sequence[Mapping]) -> float:
     """
     Mean of the per-utterance WER column, as a percentage.
