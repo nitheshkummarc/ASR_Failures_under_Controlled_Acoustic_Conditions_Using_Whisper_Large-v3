@@ -41,7 +41,7 @@ from config import (
 )
 from src.analysis.masking import (
     SPEECH_BANDS, band_snr_profile, speech_weighted_snr, modulation_stats,
-    decompose_masking,
+    decompose_masking, paired_significance,
 )
 from src.analysis.metrics import global_wer
 from src.augmentation.axis_a_noise import generate_white_noise, generate_pink_noise
@@ -227,6 +227,56 @@ def behavioural_report(out_dir: Path) -> list:
     if any(r["informational_wer"] != "" for r in rows):
         print("\n  A POSITIVE informational term means the babble costs more than a")
         print("  spectrally identical noise — damage that energy cannot explain.")
+
+    # --- paired significance for the two mechanism contrasts ---
+    # Both tests are printed. They weight utterances differently (see
+    # paired_significance in src/analysis/masking.py) and on this data they can
+    # disagree; printing a single verdict hid that.
+    def paired_rows(rows_x, rows_y):
+        by_x = {r["utterance_id"]: r for r in rows_x}
+        by_y = {r["utterance_id"]: r for r in rows_y}
+        diffs, words = [], []
+        for uid in sorted(set(by_x) & set(by_y)):
+            ex = sum(int(by_x[uid][f]) for f in ("substitutions", "insertions", "deletions"))
+            ey = sum(int(by_y[uid][f]) for f in ("substitutions", "insertions", "deletions"))
+            diffs.append(ex - ey)
+            words.append(len(str(by_y[uid]["ground_truth"]).split()))
+        return diffs, words
+
+    print("\n" + "=" * 78)
+    print("6. PAIRED SIGNIFICANCE OF THE TWO MECHANISMS")
+    print("=" * 78)
+    print("Bootstrap resamples utterances and weights by length (matching the headline")
+    print("metric); Wilcoxon ranks per-utterance differences equally. Both are shown.\n")
+    print(f"{'contrast':<30}{'diff':>7}{'95% CI':>18}{'wilcoxon p':>12}"
+          f"{'worse':>7}{'better':>7}  verdict")
+
+    for label, x_name, y_name in (("energetic     (ssn - white)", "ssn", "white"),
+                                  ("informational (cafe - ssn)", "cafe", "ssn")):
+        pooled_d, pooled_w = [], []
+        for snr in sorted(SNR_LEVELS, reverse=True):
+            gx = [r for r in axis_a
+                  if r["noise_type"] == x_name and int(float(r["snr_db"])) == snr]
+            gy = [r for r in axis_a
+                  if r["noise_type"] == y_name and int(float(r["snr_db"])) == snr]
+            if not gx or not gy:
+                continue
+            d, w = paired_rows(gx, gy)
+            pooled_d += d
+            pooled_w += w
+            st = paired_significance(d, w)
+            print(f"{label + f' @ {snr}dB':<30}{st['diff_pp']:+7.2f}"
+                  f" [{st['ci_low']:+6.2f},{st['ci_high']:+6.2f}]{st['wilcoxon_p']:12.5f}"
+                  f"{st['n_worse']:7d}{st['n_better']:7d}  {st['verdict']}")
+        if pooled_d:
+            st = paired_significance(pooled_d, pooled_w)
+            print(f"{label + ' POOLED':<30}{st['diff_pp']:+7.2f}"
+                  f" [{st['ci_low']:+6.2f},{st['ci_high']:+6.2f}]{st['wilcoxon_p']:12.5f}"
+                  f"{st['n_worse']:7d}{st['n_better']:7d}  {st['verdict'].upper()}")
+        print()
+
+    print('  "disputed" = the two tests disagree, so the effect depends on whether')
+    print("  utterances are weighted by length. Report it as such, not as a result.")
     return rows
 
 

@@ -244,6 +244,78 @@ def modulation_stats(x: np.ndarray, sr: int, frame_ms: float = 20.0) -> dict:
     }
 
 
+def paired_significance(
+    diffs: Sequence[float],
+    ref_words: Sequence[int],
+    n_boot: int = 4000,
+    seed: int = 42,
+) -> dict:
+    """
+    Paired comparison of two conditions over the same utterances.
+
+    Returns BOTH a bootstrap interval and a Wilcoxon p-value, because on this
+    data they sometimes disagree and reporting only one is misleading. They are
+    not testing the same quantity:
+
+      * The bootstrap resamples utterances and recomputes the WORD-WEIGHTED
+        global WER difference, so a long utterance counts for more. That matches
+        the headline metric.
+      * Wilcoxon ranks the per-utterance error differences, weighting every
+        utterance equally regardless of length.
+
+    A contrast concentrated in a few long utterances can therefore clear the
+    bootstrap while failing Wilcoxon, and vice versa. Treat agreement as the
+    real bar; disagreement means the effect depends on how utterances are
+    weighted and should be reported as such rather than resolved by picking the
+    friendlier test.
+
+    Args:
+        diffs:     per-utterance error-count difference (condition A minus B).
+        ref_words: reference word count for the same utterances, in the same order.
+
+    Returns dict with `diff_pp`, `ci_low`, `ci_high`, `wilcoxon_p`,
+    `n_worse`, `n_better`, `bootstrap_significant`, `wilcoxon_significant`
+    and `verdict` — one of "significant", "not significant" or "disputed".
+    """
+    import numpy as _np
+
+    diffs = _np.asarray(list(diffs), dtype=float)
+    ref_words = _np.asarray(list(ref_words), dtype=float)
+
+    if diffs.size == 0 or ref_words.sum() == 0:
+        return {"diff_pp": 0.0, "ci_low": 0.0, "ci_high": 0.0, "wilcoxon_p": 1.0,
+                "n_worse": 0, "n_better": 0, "bootstrap_significant": False,
+                "wilcoxon_significant": False, "verdict": "not significant"}
+
+    rng = _np.random.default_rng(seed)
+    idx = rng.integers(0, diffs.size, (n_boot, diffs.size))
+    boots = diffs[idx].sum(axis=1) / ref_words[idx].sum(axis=1) * 100.0
+    lo, hi = (float(v) for v in _np.percentile(boots, [2.5, 97.5]))
+
+    if _np.any(diffs != 0):
+        from scipy.stats import wilcoxon
+        p = float(wilcoxon(diffs).pvalue)
+    else:
+        p = 1.0
+
+    boot_sig = lo > 0 or hi < 0
+    wilcoxon_sig = p < 0.05
+    if boot_sig and wilcoxon_sig:
+        verdict = "significant"
+    elif not boot_sig and not wilcoxon_sig:
+        verdict = "not significant"
+    else:
+        verdict = "disputed"
+
+    return {
+        "diff_pp": float(diffs.sum() / ref_words.sum() * 100.0),
+        "ci_low": lo, "ci_high": hi, "wilcoxon_p": p,
+        "n_worse": int((diffs > 0).sum()), "n_better": int((diffs < 0).sum()),
+        "bootstrap_significant": boot_sig, "wilcoxon_significant": wilcoxon_sig,
+        "verdict": verdict,
+    }
+
+
 def decompose_masking(
     wer_by_noise: Mapping[str, float],
     baseline_wer: float,

@@ -34,12 +34,13 @@ import numpy as np
 import matplotlib
 matplotlib.use("Agg")  # headless: no display needed, and avoids a Tk dependency
 import matplotlib.pyplot as plt
-from scipy.stats import pearsonr
+from scipy.stats import pearsonr, spearmanr
 
 from config import (
     RESULTS_DIR, SNR_LEVELS, NOISE_TYPES, AXIS_B_CONDITION,
     STRETCH_RATES, SILENCE_CONFIGS, stretch_condition, silence_condition,
 )
+from src.analysis.masking import decompose_masking
 from src.analysis.metrics import global_wer
 from src.analysis.hallucination import hallucination_rate, robust_global_wer
 from src.logger import setup_logger
@@ -421,6 +422,88 @@ def run_analysis(test_mode: bool):
     plt.close(fig)
 
     # =========================================================================
+    # Masking decomposition figure
+    #
+    # This is the headline result and it had no figure — it existed only as a
+    # CSV and a terminal table, while every lesser finding had a plot. It is
+    # drawn here rather than in tools/masking_analysis.py so it regenerates with
+    # the pipeline like everything else.
+    #
+    # Skipped silently when the SSN control is absent: without it the
+    # decomposition is undefined, and an older results directory should still
+    # produce the rest of the figures.
+    # =========================================================================
+    if "ssn" in NOISE_TYPES and any(axis_a_cell(rows_a, "ssn", s) for s in SNR_LEVELS):
+        decomp = []
+        for snr in snrs_desc:
+            wer_by_noise = {
+                n: global_wer(axis_a_cell(rows_a, n, snr))
+                for n in NOISE_TYPES if axis_a_cell(rows_a, n, snr)
+            }
+            decomp.append((snr, decompose_masking(wer_by_noise, baseline_wer), wer_by_noise))
+
+        fig, (ax_left, ax_right) = plt.subplots(1, 2, figsize=(14, 6))
+
+        # Left: the four maskers as curves, so the reader can see that cafe and
+        # SSN separate only at the bottom of the SNR range.
+        for noise in NOISE_TYPES:
+            ax_left.plot(snrs_desc,
+                         [d[2].get(noise, np.nan) for d in decomp],
+                         marker="o", label=noise, color=NOISE_COLOURS.get(noise))
+        ax_left.axhline(baseline_wer, color=BASELINE_COLOUR, linestyle="--",
+                        label=f"Clean baseline = {baseline_wer:.2f}%")
+        ax_left.set_xticks(snrs_desc)
+        ax_left.invert_xaxis()
+        ax_left.set_xlabel("SNR (dB)")
+        ax_left.set_ylabel("Global WER %")
+        ax_left.set_title("Cafe and SSN are spectrally matched\nand separate only at low SNR")
+        ax_left.legend()
+
+        # Right: the decomposition itself, as signed bars.
+        x = np.arange(len(snrs_desc))
+        width = 0.38
+        energetic = [d[1]["energetic_wer"] or 0.0 for d in decomp]
+        informational = [d[1]["informational_wer"] or 0.0 for d in decomp]
+        ax_right.bar(x - width / 2, energetic, width,
+                     label="energetic  (ssn − white)", color="#2ca02c")
+        ax_right.bar(x + width / 2, informational, width,
+                     label="informational  (cafe − ssn)", color="#1f77b4")
+        ax_right.axhline(0, color="black", linewidth=0.8)
+        ax_right.set_xticks(x)
+        ax_right.set_xticklabels([f"{s} dB" for s in snrs_desc])
+        ax_right.set_xlabel("SNR (dB)")
+        ax_right.set_ylabel("WER contribution (percentage points)")
+        ax_right.set_title("Masking decomposition\n(positive = adds errors)")
+        ax_right.legend()
+        for xi, value in zip(x - width / 2, energetic):
+            ax_right.text(xi, value, f"{value:+.2f}", ha="center",
+                          va="bottom" if value >= 0 else "top", fontsize=8)
+        for xi, value in zip(x + width / 2, informational):
+            ax_right.text(xi, value, f"{value:+.2f}", ha="center",
+                          va="bottom" if value >= 0 else "top", fontsize=8)
+
+        fig.tight_layout()
+        fig.savefig(plots_dir / "masking_decomposition.png", dpi=300, bbox_inches="tight")
+        plt.close(fig)
+
+        write_csv(out_dir / "masking_decomposition.csv", [{
+            "snr_db": snr,
+            "baseline_wer": round(baseline_wer, 4),
+            **{f"wer_{n}": round(wers[n], 4) for n in NOISE_TYPES if n in wers},
+            **{k: (round(v, 4) if v is not None else "")
+               for k, v in d.items() if k.endswith("_wer") or k.endswith("_share")},
+        } for snr, d, wers in decomp])
+
+        logger.info("=== MASKING DECOMPOSITION ===")
+        for snr, d, _ in decomp:
+            logger.info(
+                f"{snr:5d}dB  energetic {d['energetic_wer']:+6.2f}pp   "
+                f"informational {d['informational_wer']:+6.2f}pp"
+            )
+    else:
+        logger.info("SSN control absent — skipping the masking decomposition figure.")
+
+    # =========================================================================
     # Statistical validation
     # =========================================================================
     logger.info("=== STATISTICAL VALIDATION (PEARSON P-VALUES) ===")
@@ -457,10 +540,57 @@ def run_analysis(test_mode: bool):
     if len(merged_y) <= 2:
         logger.warning(f"Only {len(merged_y)} merged rows — too few for a correlation.")
     else:
+        # Pearson AND Spearman. Reporting Pearson alone was misleading: it tests
+        # a LINEAR relationship, and the relationship here is monotonic but not
+        # linear, so Pearson reads ~0 while Spearman is significant.
+        logger.info(f"{'metric':<12}{'pearson r':>11}{'p':>11}{'spearman':>11}{'p':>11}")
         for metric in ("mfcc_mse", "ste_mse", "zcr_mse"):
-            r, p = pearsonr(merged_x[metric], merged_y)
-            sig = "SIGNIFICANT" if p < 0.05 else "NOT SIGNIFICANT"
-            logger.info(f"{metric.upper()} vs WER: r = {r:.3f}, p = {p:.3e} ({sig})")
+            r_p, p_p = pearsonr(merged_x[metric], merged_y)
+            r_s, p_s = spearmanr(merged_x[metric], merged_y)
+            logger.info(f"{metric:<12}{r_p:11.3f}{p_p:11.3g}{r_s:11.3f}{p_s:11.3g}")
+
+        # The pooled figure hides a sign reversal. Within a fixed noise type the
+        # correlation is POSITIVE (more spectral distortion -> more errors);
+        # BETWEEN noise types it is negative, because white noise produces
+        # enormous MFCC deviation for moderate WER while cafe produces very
+        # little for the worst WER in the study. Pooling cancels the two, which
+        # is a Simpson's paradox and is the actual finding — a spectral-distance
+        # feature is informative within a masker and misleading across maskers.
+        logger.info("--- within each noise type (removes the between-noise reversal) ---")
+        logger.info(f"{'noise':<10}{'n':>6}{'mfcc r':>10}{'p':>11}{'ste r':>10}{'p':>11}")
+        for noise in NOISE_TYPES:
+            xs_mfcc, xs_ste, ys = [], [], []
+            for row in rows_a:
+                if row["noise_type"] != noise:
+                    continue
+                key = (row["utterance_id"], noise, str(int(float(row["snr_db"]))))
+                match = feat_index.get(key)
+                if match:
+                    xs_mfcc.append(float(match["mfcc_mse"]))
+                    xs_ste.append(float(match["ste_mse"]))
+                    ys.append(float(row["wer"]) * 100)
+            if len(ys) > 2:
+                r1, p1 = pearsonr(xs_mfcc, ys)
+                r2, p2 = pearsonr(xs_ste, ys)
+                logger.info(f"{noise:<10}{len(ys):>6}{r1:10.3f}{p1:11.3g}{r2:10.3f}{p2:11.3g}")
+
+        # Mean deviation against WER per condition makes the reversal concrete.
+        logger.info("--- mean MFCC deviation vs WER, worst SNR + Axis B ---")
+        cond_means = defaultdict(list)
+        for r in feat:
+            cond_means[r["condition"]].append(float(r["mfcc_mse"]))
+        pairs = []
+        for noise in NOISE_TYPES:
+            cell = axis_a_cell(rows_a, noise, worst_snr)
+            key = f"axis_a_{noise}_{worst_snr}"
+            if cell and key in cond_means:
+                pairs.append((f"{noise} {worst_snr}dB",
+                              float(np.mean(cond_means[key])), global_wer(cell)))
+        if rows_b and "axis_b_telephonic" in cond_means:
+            pairs.append(("telephonic",
+                          float(np.mean(cond_means["axis_b_telephonic"])), global_wer(rows_b)))
+        for name, mse, wer in sorted(pairs, key=lambda t: -t[1]):
+            logger.info(f"   {name:<16} mfcc_mse {mse:8.1f}   WER {wer:5.2f}%")
 
     logger.info(f"Visualizations saved to {plots_dir}")
 

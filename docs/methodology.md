@@ -353,18 +353,42 @@ that mild café babble *suppresses end-of-audio hallucination*, and because WER
 charges those hallucinated words as insertions, the suppression shows up as an
 apparent accuracy gain. Underlying recognition is marginally worse, as expected.
 
-**5. Feature deviation does not predict WER.** Across all 2,400 Axis A trials:
+**5. Spectral distortion predicts WER within a masker and inverts across
+maskers.** Pooled over all 2,400 Axis A trials, Pearson finds nothing:
 
-| Feature | Pearson r | p |
+| Feature | Pearson r | p | Spearman ρ | p |
+|---|---|---|---|---|
+| MFCC MSE | 0.028 | 0.163 | 0.080 | **8.6e-05** |
+| STE MSE | 0.008 | 0.696 | 0.144 | **1.4e-12** |
+| ZCR MSE | 0.026 | 0.211 | 0.004 | 0.843 |
+
+Two of the three are significant under Spearman, so the relationship exists but
+is not linear — reporting Pearson alone (as earlier versions of this document
+did) understates it. Within a fixed noise type the correlation is positive and
+significant for café (r = 0.206, p = 3.7e-07) and SSN (r = 0.120, p = 0.003),
+and absent for white (r = 0.017) and pink (r = 0.073).
+
+Between noise types it runs the other way:
+
+| Condition | mean MFCC MSE | Global WER |
 |---|---|---|
-| MFCC MSE | 0.028 | 0.163 |
-| STE MSE | 0.008 | 0.696 |
-| ZCR MSE | 0.026 | 0.211 |
+| telephonic | **831.8** | 3.27 % |
+| white 5 dB | 244.9 | 6.28 % |
+| pink 5 dB | 93.7 | 4.78 % |
+| SSN 5 dB | 49.7 | 5.20 % |
+| café 5 dB | **33.5** | 9.39 % |
 
-None significant at α = 0.05. White noise at 5 dB produces enormous MFCC
-deviation but only moderate WER, while time-scaled audio produces near-zero
-spectral deviation and the worst WER in the study. Together with finding 3, this
-argues the dominant failure mode is architectural rather than acoustic.
+Telephonic generates the largest feature deviation in the entire study — 25×
+café's — at no measurable cost in WER, while café generates the smallest and is
+the most damaging additive condition. The positive within-masker trend and the
+negative between-masker trend cancel when pooled, which is why the naive test
+reads zero: a Simpson's paradox rather than a null result.
+
+The implication is the same one finding 1 reaches from the masking side and
+finding 3 from the temporal side: what determines recognition failure is not how
+far the spectrum moved. A spectral-distance feature can rank severity inside a
+single masker, but comparing that distance across different kinds of corruption
+is meaningless.
 
 ## Verification
 

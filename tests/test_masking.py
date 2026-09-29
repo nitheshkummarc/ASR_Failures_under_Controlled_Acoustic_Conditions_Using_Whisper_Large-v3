@@ -239,6 +239,55 @@ def test_decomposition_degrades_gracefully_without_the_control():
     assert d["total_excess_wer"] == pytest.approx(8.0)
 
 
+def test_paired_significance_detects_a_consistent_effect():
+    """Every utterance worse by 2 errors — both tests must agree it is real."""
+    from src.analysis.masking import paired_significance
+    st = paired_significance([2] * 60, [20] * 60)
+    assert st["diff_pp"] == pytest.approx(10.0)
+    assert st["ci_low"] > 0 and st["ci_high"] > 0
+    assert st["verdict"] == "significant"
+    assert st["n_worse"] == 60 and st["n_better"] == 0
+
+
+def test_paired_significance_reports_no_effect_for_balanced_noise():
+    from src.analysis.masking import paired_significance
+    diffs = [1, -1] * 40
+    st = paired_significance(diffs, [20] * 80)
+    assert st["diff_pp"] == pytest.approx(0.0)
+    assert st["ci_low"] <= 0 <= st["ci_high"]
+    assert st["verdict"] == "not significant"
+
+
+def test_paired_significance_flags_disagreement_as_disputed():
+    """
+    The verdict must not silently pick whichever test is friendlier.
+
+    Many utterances slightly better, a minority substantially worse. The signed
+    ranks favour "worse" (Wilcoxon fires), but the total is dominated by a heavy
+    tail, so resampling puts zero inside the interval. That is a genuine
+    disagreement and must be labelled, not resolved.
+    """
+    from src.analysis.masking import paired_significance
+    st = paired_significance([-1] * 60 + [6] * 16, [20] * 76)
+    assert st["wilcoxon_significant"] and not st["bootstrap_significant"]
+    assert st["verdict"] == "disputed"
+
+
+def test_paired_significance_handles_empty_input():
+    from src.analysis.masking import paired_significance
+    st = paired_significance([], [])
+    assert st["verdict"] == "not significant"
+    assert st["diff_pp"] == 0.0
+
+
+def test_paired_significance_is_reproducible():
+    from src.analysis.masking import paired_significance
+    rng = np.random.default_rng(0)
+    diffs = rng.integers(-3, 4, 80).tolist()
+    words = rng.integers(8, 40, 80).tolist()
+    assert paired_significance(diffs, words) == paired_significance(diffs, words)
+
+
 def test_decomposition_handles_zero_total_without_dividing_by_zero():
     d = decompose_masking({"white": 3.0, "ssn": 3.0, "cafe": 3.0}, baseline_wer=3.0)
     assert d["informational_share"] is None

@@ -105,11 +105,41 @@ secondary metric is reported alongside (never instead of) the primary WER:
 Note this is **not** purely spectral: SSN is spectrally identical to café yet only
 partially suppresses the phrase (0–4 %), so café's temporal structure matters too.
 
-### 5. Feature deviation does not predict WER
+### 5. Spectral distortion is informative within a masker and misleading across maskers
 
-Across all 2,400 Axis A trials: MFCC MSE `r = 0.028, p = 0.163`; STE MSE
-`r = 0.008, p = 0.696`; ZCR MSE `r = 0.026, p = 0.211`. None significant. The
-magnitude of spectral distortion is a poor predictor of recognition failure.
+The naive test — Pearson correlation pooled over all 2,400 Axis A trials — finds
+nothing: MFCC `r = 0.028, p = 0.163`, STE `r = 0.008, p = 0.696`, ZCR
+`r = 0.026, p = 0.211`. But Pearson tests a *linear* relationship, and pooling
+hides a sign reversal.
+
+Spearman on the same data is significant for two of the three
+(MFCC `ρ = 0.080, p = 8.6e-05`; STE `ρ = 0.144, p = 1.4e-12`), and **within** a
+fixed noise type the correlation is positive:
+
+| Noise | MFCC r | p |
+|---|---|---|
+| café | **0.206** | 3.7e-07 |
+| SSN | **0.120** | 0.003 |
+| pink | 0.073 | 0.074 |
+| white | 0.017 | 0.684 |
+
+*Between* noise types the relationship runs the other way, and strongly:
+
+| Condition | mean MFCC MSE | Global WER |
+|---|---|---|
+| **telephonic** | **831.8** | **3.27 %** (no measurable cost) |
+| white 5 dB | 244.9 | 6.28 % |
+| pink 5 dB | 93.7 | 4.78 % |
+| SSN 5 dB | 49.7 | 5.20 % |
+| **café 5 dB** | **33.5** | **9.39 %** (worst) |
+
+Telephonic produces **25× more MFCC deviation than café** and costs nothing,
+while café barely moves the MFCCs and is the most damaging additive condition.
+Pooling the positive within-masker trend against this negative between-masker
+trend cancels both — a Simpson's paradox. So the honest claim is not "feature
+deviation is uninformative"; it is that a spectral-distance feature tracks
+severity *within* a masker and actively misleads *across* maskers, which is the
+same conclusion the masking decomposition reaches by another route.
 
 ### Statistical note
 
@@ -158,8 +188,11 @@ Stages, in order:
 | 3 | `scripts/03_run_axis_b_c.py` | 900 WAVs, `results/axis_b_results.csv`, `axis_c_results.csv` |
 | 4 | `tools/verify_acoustics.py --all` | PASS/FAIL — 3,750 checks across the corpus |
 | 5 | `scripts/04_run_feature_extraction.py` | `results/feature_deviation.csv` |
-| 6 | `scripts/05_run_analysis.py` | 9 summary charts, `hallucination_audit.csv`, Pearson p-values |
+| 6 | `scripts/05_run_analysis.py` | 10 summary charts, `hallucination_audit.csv`, `masking_decomposition.csv`, correlations |
 | 7 | `scripts/06_generate_spectrograms.py` | per-utterance spectrograms and MFCC heatmaps |
+
+`masking_decomposition.png` carries the headline result: the four maskers as
+degradation curves beside the signed energetic/informational split per SNR.
 
 Every axis gets the same three views, so they can be read against each other:
 WER against the clean baseline, a severity curve wherever the axis has a severity
