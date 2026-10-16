@@ -1,0 +1,1273 @@
+{
+  "method": "Bag of Hallucinations, Baranski et al., ICASSP 2025, arXiv:2501.11378",
+  "whisper": {
+    "model": "large-v3",
+    "compute_type": "int8",
+    "beam_size": 5,
+    "language": "en"
+  },
+  "probe_grid": {
+    "noises": [
+      "silence",
+      "white",
+      "pink",
+      "ssn"
+    ],
+    "levels_dbfs_rms": [
+      -60,
+      -45,
+      -30,
+      -20
+    ],
+    "durations_s": [
+      1,
+      2,
+      5,
+      10,
+      20,
+      30
+    ],
+    "repeats": 2,
+    "seed": 42
+  },
+  "filters": {
+    "min_count": 2,
+    "max_log10_unigram_prob": -4.0,
+    "loop_min_words_when_stripping": 2
+  },
+  "language_model": {
+    "source": "LibriSpeech dev-clean minus the 150 test utterances",
+    "utterances": 2553,
+    "tokens": 51346,
+    "vocabulary": 8031
+  },
+  "n_probes": 150,
+  "n_probes_with_output": 150,
+  "n_skipped_oom": 0,
+  "bag": [
+    "thank you",
+    "thanks for watching"
+  ],
+  "dropped": [
+    {
+      "phrase": "thank you for watching",
+      "count": 1,
+      "log10_prob": -12.503,
+      "reason": "count 1 < 2"
+    },
+    {
+      "phrase": "you",
+      "count": 1,
+      "log10_prob": -2.267,
+      "reason": "count 1 < 2"
+    }
+  ],
+  "output_counts": {
+    "thank you": 141,
+    "thanks for watching": 7,
+    "you": 1,
+    "thank you for watching": 1
+  },
+  "probes": [
+    {
+      "probe": "silence_1s",
+      "noise": "silence",
+      "level_dbfs": null,
+      "duration_s": 1,
+      "raw": "Thank you.",
+      "output": "thank you"
+    },
+    {
+      "probe": "silence_2s",
+      "noise": "silence",
+      "level_dbfs": null,
+      "duration_s": 2,
+      "raw": "Thank you.",
+      "output": "thank you"
+    },
+    {
+      "probe": "silence_5s",
+      "noise": "silence",
+      "level_dbfs": null,
+      "duration_s": 5,
+      "raw": "Thank you.",
+      "output": "thank you"
+    },
+    {
+      "probe": "silence_10s",
+      "noise": "silence",
+      "level_dbfs": null,
+      "duration_s": 10,
+      "raw": "Thank you.",
+      "output": "thank you"
+    },
+    {
+      "probe": "silence_20s",
+      "noise": "silence",
+      "level_dbfs": null,
+      "duration_s": 20,
+      "raw": "Thank you.",
+      "output": "thank you"
+    },
+    {
+      "probe": "silence_30s",
+      "noise": "silence",
+      "level_dbfs": null,
+      "duration_s": 30,
+      "raw": "you",
+      "output": "you"
+    },
+    {
+      "probe": "white_-60dbfs_1s_r0",
+      "noise": "white",
+      "level_dbfs": -60,
+      "duration_s": 1,
+      "raw": "Thank you.",
+      "output": "thank you"
+    },
+    {
+      "probe": "white_-60dbfs_1s_r1",
+      "noise": "white",
+      "level_dbfs": -60,
+      "duration_s": 1,
+      "raw": "Thank you.",
+      "output": "thank you"
+    },
+    {
+      "probe": "white_-45dbfs_1s_r0",
+      "noise": "white",
+      "level_dbfs": -45,
+      "duration_s": 1,
+      "raw": "Thank you.",
+      "output": "thank you"
+    },
+    {
+      "probe": "white_-45dbfs_1s_r1",
+      "noise": "white",
+      "level_dbfs": -45,
+      "duration_s": 1,
+      "raw": "Thank you.",
+      "output": "thank you"
+    },
+    {
+      "probe": "white_-30dbfs_1s_r0",
+      "noise": "white",
+      "level_dbfs": -30,
+      "duration_s": 1,
+      "raw": "Thank you.",
+      "output": "thank you"
+    },
+    {
+      "probe": "white_-30dbfs_1s_r1",
+      "noise": "white",
+      "level_dbfs": -30,
+      "duration_s": 1,
+      "raw": "Thank you.",
+      "output": "thank you"
+    },
+    {
+      "probe": "white_-20dbfs_1s_r0",
+      "noise": "white",
+      "level_dbfs": -20,
+      "duration_s": 1,
+      "raw": "Thank you.",
+      "output": "thank you"
+    },
+    {
+      "probe": "white_-20dbfs_1s_r1",
+      "noise": "white",
+      "level_dbfs": -20,
+      "duration_s": 1,
+      "raw": "Thank you.",
+      "output": "thank you"
+    },
+    {
+      "probe": "white_-60dbfs_2s_r0",
+      "noise": "white",
+      "level_dbfs": -60,
+      "duration_s": 2,
+      "raw": "Thank you.",
+      "output": "thank you"
+    },
+    {
+      "probe": "white_-60dbfs_2s_r1",
+      "noise": "white",
+      "level_dbfs": -60,
+      "duration_s": 2,
+      "raw": "Thank you.",
+      "output": "thank you"
+    },
+    {
+      "probe": "white_-45dbfs_2s_r0",
+      "noise": "white",
+      "level_dbfs": -45,
+      "duration_s": 2,
+      "raw": "Thank you.",
+      "output": "thank you"
+    },
+    {
+      "probe": "white_-45dbfs_2s_r1",
+      "noise": "white",
+      "level_dbfs": -45,
+      "duration_s": 2,
+      "raw": "Thank you.",
+      "output": "thank you"
+    },
+    {
+      "probe": "white_-30dbfs_2s_r0",
+      "noise": "white",
+      "level_dbfs": -30,
+      "duration_s": 2,
+      "raw": "Thank you.",
+      "output": "thank you"
+    },
+    {
+      "probe": "white_-30dbfs_2s_r1",
+      "noise": "white",
+      "level_dbfs": -30,
+      "duration_s": 2,
+      "raw": "Thank you.",
+      "output": "thank you"
+    },
+    {
+      "probe": "white_-20dbfs_2s_r0",
+      "noise": "white",
+      "level_dbfs": -20,
+      "duration_s": 2,
+      "raw": "Thank you.",
+      "output": "thank you"
+    },
+    {
+      "probe": "white_-20dbfs_2s_r1",
+      "noise": "white",
+      "level_dbfs": -20,
+      "duration_s": 2,
+      "raw": "Thank you.",
+      "output": "thank you"
+    },
+    {
+      "probe": "white_-60dbfs_5s_r0",
+      "noise": "white",
+      "level_dbfs": -60,
+      "duration_s": 5,
+      "raw": "Thank you.",
+      "output": "thank you"
+    },
+    {
+      "probe": "white_-60dbfs_5s_r1",
+      "noise": "white",
+      "level_dbfs": -60,
+      "duration_s": 5,
+      "raw": "Thank you.",
+      "output": "thank you"
+    },
+    {
+      "probe": "white_-45dbfs_5s_r0",
+      "noise": "white",
+      "level_dbfs": -45,
+      "duration_s": 5,
+      "raw": "Thank you.",
+      "output": "thank you"
+    },
+    {
+      "probe": "white_-45dbfs_5s_r1",
+      "noise": "white",
+      "level_dbfs": -45,
+      "duration_s": 5,
+      "raw": "Thank you.",
+      "output": "thank you"
+    },
+    {
+      "probe": "white_-30dbfs_5s_r0",
+      "noise": "white",
+      "level_dbfs": -30,
+      "duration_s": 5,
+      "raw": "Thank you.",
+      "output": "thank you"
+    },
+    {
+      "probe": "white_-30dbfs_5s_r1",
+      "noise": "white",
+      "level_dbfs": -30,
+      "duration_s": 5,
+      "raw": "Thank you.",
+      "output": "thank you"
+    },
+    {
+      "probe": "white_-20dbfs_5s_r0",
+      "noise": "white",
+      "level_dbfs": -20,
+      "duration_s": 5,
+      "raw": "Thank you.",
+      "output": "thank you"
+    },
+    {
+      "probe": "white_-20dbfs_5s_r1",
+      "noise": "white",
+      "level_dbfs": -20,
+      "duration_s": 5,
+      "raw": "Thank you.",
+      "output": "thank you"
+    },
+    {
+      "probe": "white_-60dbfs_10s_r0",
+      "noise": "white",
+      "level_dbfs": -60,
+      "duration_s": 10,
+      "raw": "Thank you.",
+      "output": "thank you"
+    },
+    {
+      "probe": "white_-60dbfs_10s_r1",
+      "noise": "white",
+      "level_dbfs": -60,
+      "duration_s": 10,
+      "raw": "Thank you.",
+      "output": "thank you"
+    },
+    {
+      "probe": "white_-45dbfs_10s_r0",
+      "noise": "white",
+      "level_dbfs": -45,
+      "duration_s": 10,
+      "raw": "Thank you.",
+      "output": "thank you"
+    },
+    {
+      "probe": "white_-45dbfs_10s_r1",
+      "noise": "white",
+      "level_dbfs": -45,
+      "duration_s": 10,
+      "raw": "Thank you.",
+      "output": "thank you"
+    },
+    {
+      "probe": "white_-30dbfs_10s_r0",
+      "noise": "white",
+      "level_dbfs": -30,
+      "duration_s": 10,
+      "raw": "Thank you.",
+      "output": "thank you"
+    },
+    {
+      "probe": "white_-30dbfs_10s_r1",
+      "noise": "white",
+      "level_dbfs": -30,
+      "duration_s": 10,
+      "raw": "Thank you.",
+      "output": "thank you"
+    },
+    {
+      "probe": "white_-20dbfs_10s_r0",
+      "noise": "white",
+      "level_dbfs": -20,
+      "duration_s": 10,
+      "raw": "Thank you.",
+      "output": "thank you"
+    },
+    {
+      "probe": "white_-20dbfs_10s_r1",
+      "noise": "white",
+      "level_dbfs": -20,
+      "duration_s": 10,
+      "raw": "Thank you.",
+      "output": "thank you"
+    },
+    {
+      "probe": "white_-60dbfs_20s_r0",
+      "noise": "white",
+      "level_dbfs": -60,
+      "duration_s": 20,
+      "raw": "Thank you.",
+      "output": "thank you"
+    },
+    {
+      "probe": "white_-60dbfs_20s_r1",
+      "noise": "white",
+      "level_dbfs": -60,
+      "duration_s": 20,
+      "raw": "Thank you.",
+      "output": "thank you"
+    },
+    {
+      "probe": "white_-45dbfs_20s_r0",
+      "noise": "white",
+      "level_dbfs": -45,
+      "duration_s": 20,
+      "raw": "Thank you.",
+      "output": "thank you"
+    },
+    {
+      "probe": "white_-45dbfs_20s_r1",
+      "noise": "white",
+      "level_dbfs": -45,
+      "duration_s": 20,
+      "raw": "Thank you.",
+      "output": "thank you"
+    },
+    {
+      "probe": "white_-30dbfs_20s_r0",
+      "noise": "white",
+      "level_dbfs": -30,
+      "duration_s": 20,
+      "raw": "Thank you.",
+      "output": "thank you"
+    },
+    {
+      "probe": "white_-30dbfs_20s_r1",
+      "noise": "white",
+      "level_dbfs": -30,
+      "duration_s": 20,
+      "raw": "Thank you.",
+      "output": "thank you"
+    },
+    {
+      "probe": "white_-20dbfs_20s_r0",
+      "noise": "white",
+      "level_dbfs": -20,
+      "duration_s": 20,
+      "raw": "Thank you.",
+      "output": "thank you"
+    },
+    {
+      "probe": "white_-20dbfs_20s_r1",
+      "noise": "white",
+      "level_dbfs": -20,
+      "duration_s": 20,
+      "raw": "Thank you.",
+      "output": "thank you"
+    },
+    {
+      "probe": "white_-60dbfs_30s_r0",
+      "noise": "white",
+      "level_dbfs": -60,
+      "duration_s": 30,
+      "raw": "Thank you.",
+      "output": "thank you"
+    },
+    {
+      "probe": "white_-60dbfs_30s_r1",
+      "noise": "white",
+      "level_dbfs": -60,
+      "duration_s": 30,
+      "raw": "Thank you.",
+      "output": "thank you"
+    },
+    {
+      "probe": "white_-45dbfs_30s_r0",
+      "noise": "white",
+      "level_dbfs": -45,
+      "duration_s": 30,
+      "raw": "Thank you.",
+      "output": "thank you"
+    },
+    {
+      "probe": "white_-45dbfs_30s_r1",
+      "noise": "white",
+      "level_dbfs": -45,
+      "duration_s": 30,
+      "raw": "Thank you.",
+      "output": "thank you"
+    },
+    {
+      "probe": "white_-30dbfs_30s_r0",
+      "noise": "white",
+      "level_dbfs": -30,
+      "duration_s": 30,
+      "raw": "Thank you.",
+      "output": "thank you"
+    },
+    {
+      "probe": "white_-30dbfs_30s_r1",
+      "noise": "white",
+      "level_dbfs": -30,
+      "duration_s": 30,
+      "raw": "Thank you.",
+      "output": "thank you"
+    },
+    {
+      "probe": "white_-20dbfs_30s_r0",
+      "noise": "white",
+      "level_dbfs": -20,
+      "duration_s": 30,
+      "raw": "Thank you.",
+      "output": "thank you"
+    },
+    {
+      "probe": "white_-20dbfs_30s_r1",
+      "noise": "white",
+      "level_dbfs": -20,
+      "duration_s": 30,
+      "raw": "Thank you.",
+      "output": "thank you"
+    },
+    {
+      "probe": "pink_-60dbfs_1s_r0",
+      "noise": "pink",
+      "level_dbfs": -60,
+      "duration_s": 1,
+      "raw": "Thank you.",
+      "output": "thank you"
+    },
+    {
+      "probe": "pink_-60dbfs_1s_r1",
+      "noise": "pink",
+      "level_dbfs": -60,
+      "duration_s": 1,
+      "raw": "Thank you.",
+      "output": "thank you"
+    },
+    {
+      "probe": "pink_-45dbfs_1s_r0",
+      "noise": "pink",
+      "level_dbfs": -45,
+      "duration_s": 1,
+      "raw": "Thank you.",
+      "output": "thank you"
+    },
+    {
+      "probe": "pink_-45dbfs_1s_r1",
+      "noise": "pink",
+      "level_dbfs": -45,
+      "duration_s": 1,
+      "raw": "Thank you.",
+      "output": "thank you"
+    },
+    {
+      "probe": "pink_-30dbfs_1s_r0",
+      "noise": "pink",
+      "level_dbfs": -30,
+      "duration_s": 1,
+      "raw": "Thank you.",
+      "output": "thank you"
+    },
+    {
+      "probe": "pink_-30dbfs_1s_r1",
+      "noise": "pink",
+      "level_dbfs": -30,
+      "duration_s": 1,
+      "raw": "Thank you.",
+      "output": "thank you"
+    },
+    {
+      "probe": "pink_-20dbfs_1s_r0",
+      "noise": "pink",
+      "level_dbfs": -20,
+      "duration_s": 1,
+      "raw": "Thank you.",
+      "output": "thank you"
+    },
+    {
+      "probe": "pink_-20dbfs_1s_r1",
+      "noise": "pink",
+      "level_dbfs": -20,
+      "duration_s": 1,
+      "raw": "Thank you.",
+      "output": "thank you"
+    },
+    {
+      "probe": "pink_-60dbfs_2s_r0",
+      "noise": "pink",
+      "level_dbfs": -60,
+      "duration_s": 2,
+      "raw": "Thank you.",
+      "output": "thank you"
+    },
+    {
+      "probe": "pink_-60dbfs_2s_r1",
+      "noise": "pink",
+      "level_dbfs": -60,
+      "duration_s": 2,
+      "raw": "Thank you.",
+      "output": "thank you"
+    },
+    {
+      "probe": "pink_-45dbfs_2s_r0",
+      "noise": "pink",
+      "level_dbfs": -45,
+      "duration_s": 2,
+      "raw": "Thank you.",
+      "output": "thank you"
+    },
+    {
+      "probe": "pink_-45dbfs_2s_r1",
+      "noise": "pink",
+      "level_dbfs": -45,
+      "duration_s": 2,
+      "raw": "Thank you.",
+      "output": "thank you"
+    },
+    {
+      "probe": "pink_-30dbfs_2s_r0",
+      "noise": "pink",
+      "level_dbfs": -30,
+      "duration_s": 2,
+      "raw": "Thank you.",
+      "output": "thank you"
+    },
+    {
+      "probe": "pink_-30dbfs_2s_r1",
+      "noise": "pink",
+      "level_dbfs": -30,
+      "duration_s": 2,
+      "raw": "Thank you.",
+      "output": "thank you"
+    },
+    {
+      "probe": "pink_-20dbfs_2s_r0",
+      "noise": "pink",
+      "level_dbfs": -20,
+      "duration_s": 2,
+      "raw": "Thank you.",
+      "output": "thank you"
+    },
+    {
+      "probe": "pink_-20dbfs_2s_r1",
+      "noise": "pink",
+      "level_dbfs": -20,
+      "duration_s": 2,
+      "raw": "Thank you.",
+      "output": "thank you"
+    },
+    {
+      "probe": "pink_-60dbfs_5s_r0",
+      "noise": "pink",
+      "level_dbfs": -60,
+      "duration_s": 5,
+      "raw": "Thank you.",
+      "output": "thank you"
+    },
+    {
+      "probe": "pink_-60dbfs_5s_r1",
+      "noise": "pink",
+      "level_dbfs": -60,
+      "duration_s": 5,
+      "raw": "Thank you.",
+      "output": "thank you"
+    },
+    {
+      "probe": "pink_-45dbfs_5s_r0",
+      "noise": "pink",
+      "level_dbfs": -45,
+      "duration_s": 5,
+      "raw": "Thank you.",
+      "output": "thank you"
+    },
+    {
+      "probe": "pink_-45dbfs_5s_r1",
+      "noise": "pink",
+      "level_dbfs": -45,
+      "duration_s": 5,
+      "raw": "Thank you.",
+      "output": "thank you"
+    },
+    {
+      "probe": "pink_-30dbfs_5s_r0",
+      "noise": "pink",
+      "level_dbfs": -30,
+      "duration_s": 5,
+      "raw": "Thank you.",
+      "output": "thank you"
+    },
+    {
+      "probe": "pink_-30dbfs_5s_r1",
+      "noise": "pink",
+      "level_dbfs": -30,
+      "duration_s": 5,
+      "raw": "Thank you.",
+      "output": "thank you"
+    },
+    {
+      "probe": "pink_-20dbfs_5s_r0",
+      "noise": "pink",
+      "level_dbfs": -20,
+      "duration_s": 5,
+      "raw": "Thanks for watching!",
+      "output": "thanks for watching"
+    },
+    {
+      "probe": "pink_-20dbfs_5s_r1",
+      "noise": "pink",
+      "level_dbfs": -20,
+      "duration_s": 5,
+      "raw": "Thanks for watching!",
+      "output": "thanks for watching"
+    },
+    {
+      "probe": "pink_-60dbfs_10s_r0",
+      "noise": "pink",
+      "level_dbfs": -60,
+      "duration_s": 10,
+      "raw": "Thank you.",
+      "output": "thank you"
+    },
+    {
+      "probe": "pink_-60dbfs_10s_r1",
+      "noise": "pink",
+      "level_dbfs": -60,
+      "duration_s": 10,
+      "raw": "Thank you.",
+      "output": "thank you"
+    },
+    {
+      "probe": "pink_-45dbfs_10s_r0",
+      "noise": "pink",
+      "level_dbfs": -45,
+      "duration_s": 10,
+      "raw": "Thank you.",
+      "output": "thank you"
+    },
+    {
+      "probe": "pink_-45dbfs_10s_r1",
+      "noise": "pink",
+      "level_dbfs": -45,
+      "duration_s": 10,
+      "raw": "Thank you.",
+      "output": "thank you"
+    },
+    {
+      "probe": "pink_-30dbfs_10s_r0",
+      "noise": "pink",
+      "level_dbfs": -30,
+      "duration_s": 10,
+      "raw": "Thank you.",
+      "output": "thank you"
+    },
+    {
+      "probe": "pink_-30dbfs_10s_r1",
+      "noise": "pink",
+      "level_dbfs": -30,
+      "duration_s": 10,
+      "raw": "Thank you.",
+      "output": "thank you"
+    },
+    {
+      "probe": "pink_-20dbfs_10s_r0",
+      "noise": "pink",
+      "level_dbfs": -20,
+      "duration_s": 10,
+      "raw": "Thank you.",
+      "output": "thank you"
+    },
+    {
+      "probe": "pink_-20dbfs_10s_r1",
+      "noise": "pink",
+      "level_dbfs": -20,
+      "duration_s": 10,
+      "raw": "Thank you.",
+      "output": "thank you"
+    },
+    {
+      "probe": "pink_-60dbfs_20s_r0",
+      "noise": "pink",
+      "level_dbfs": -60,
+      "duration_s": 20,
+      "raw": "Thank you.",
+      "output": "thank you"
+    },
+    {
+      "probe": "pink_-60dbfs_20s_r1",
+      "noise": "pink",
+      "level_dbfs": -60,
+      "duration_s": 20,
+      "raw": "Thank you.",
+      "output": "thank you"
+    },
+    {
+      "probe": "pink_-45dbfs_20s_r0",
+      "noise": "pink",
+      "level_dbfs": -45,
+      "duration_s": 20,
+      "raw": "Thank you.",
+      "output": "thank you"
+    },
+    {
+      "probe": "pink_-45dbfs_20s_r1",
+      "noise": "pink",
+      "level_dbfs": -45,
+      "duration_s": 20,
+      "raw": "Thank you.",
+      "output": "thank you"
+    },
+    {
+      "probe": "pink_-30dbfs_20s_r0",
+      "noise": "pink",
+      "level_dbfs": -30,
+      "duration_s": 20,
+      "raw": "Thank you.",
+      "output": "thank you"
+    },
+    {
+      "probe": "pink_-30dbfs_20s_r1",
+      "noise": "pink",
+      "level_dbfs": -30,
+      "duration_s": 20,
+      "raw": "Thank you.",
+      "output": "thank you"
+    },
+    {
+      "probe": "pink_-20dbfs_20s_r0",
+      "noise": "pink",
+      "level_dbfs": -20,
+      "duration_s": 20,
+      "raw": "Thank you.",
+      "output": "thank you"
+    },
+    {
+      "probe": "pink_-20dbfs_20s_r1",
+      "noise": "pink",
+      "level_dbfs": -20,
+      "duration_s": 20,
+      "raw": "Thank you.",
+      "output": "thank you"
+    },
+    {
+      "probe": "pink_-60dbfs_30s_r0",
+      "noise": "pink",
+      "level_dbfs": -60,
+      "duration_s": 30,
+      "raw": "Thank you.",
+      "output": "thank you"
+    },
+    {
+      "probe": "pink_-60dbfs_30s_r1",
+      "noise": "pink",
+      "level_dbfs": -60,
+      "duration_s": 30,
+      "raw": ".  Thank you.",
+      "output": "thank you"
+    },
+    {
+      "probe": "pink_-45dbfs_30s_r0",
+      "noise": "pink",
+      "level_dbfs": -45,
+      "duration_s": 30,
+      "raw": "Thank you.",
+      "output": "thank you"
+    },
+    {
+      "probe": "pink_-45dbfs_30s_r1",
+      "noise": "pink",
+      "level_dbfs": -45,
+      "duration_s": 30,
+      "raw": "Thank you.",
+      "output": "thank you"
+    },
+    {
+      "probe": "pink_-30dbfs_30s_r0",
+      "noise": "pink",
+      "level_dbfs": -30,
+      "duration_s": 30,
+      "raw": "Thank you.",
+      "output": "thank you"
+    },
+    {
+      "probe": "pink_-30dbfs_30s_r1",
+      "noise": "pink",
+      "level_dbfs": -30,
+      "duration_s": 30,
+      "raw": "Thank you.",
+      "output": "thank you"
+    },
+    {
+      "probe": "pink_-20dbfs_30s_r0",
+      "noise": "pink",
+      "level_dbfs": -20,
+      "duration_s": 30,
+      "raw": "Thank you.",
+      "output": "thank you"
+    },
+    {
+      "probe": "pink_-20dbfs_30s_r1",
+      "noise": "pink",
+      "level_dbfs": -20,
+      "duration_s": 30,
+      "raw": "Thank you.",
+      "output": "thank you"
+    },
+    {
+      "probe": "ssn_-60dbfs_1s_r0",
+      "noise": "ssn",
+      "level_dbfs": -60,
+      "duration_s": 1,
+      "raw": "Thank you.",
+      "output": "thank you"
+    },
+    {
+      "probe": "ssn_-60dbfs_1s_r1",
+      "noise": "ssn",
+      "level_dbfs": -60,
+      "duration_s": 1,
+      "raw": "Thank you.",
+      "output": "thank you"
+    },
+    {
+      "probe": "ssn_-45dbfs_1s_r0",
+      "noise": "ssn",
+      "level_dbfs": -45,
+      "duration_s": 1,
+      "raw": "Thank you.",
+      "output": "thank you"
+    },
+    {
+      "probe": "ssn_-45dbfs_1s_r1",
+      "noise": "ssn",
+      "level_dbfs": -45,
+      "duration_s": 1,
+      "raw": "Thank you.",
+      "output": "thank you"
+    },
+    {
+      "probe": "ssn_-30dbfs_1s_r0",
+      "noise": "ssn",
+      "level_dbfs": -30,
+      "duration_s": 1,
+      "raw": "Thank you.",
+      "output": "thank you"
+    },
+    {
+      "probe": "ssn_-30dbfs_1s_r1",
+      "noise": "ssn",
+      "level_dbfs": -30,
+      "duration_s": 1,
+      "raw": "Thank you.",
+      "output": "thank you"
+    },
+    {
+      "probe": "ssn_-20dbfs_1s_r0",
+      "noise": "ssn",
+      "level_dbfs": -20,
+      "duration_s": 1,
+      "raw": "Thank you.",
+      "output": "thank you"
+    },
+    {
+      "probe": "ssn_-20dbfs_1s_r1",
+      "noise": "ssn",
+      "level_dbfs": -20,
+      "duration_s": 1,
+      "raw": "Thank you.",
+      "output": "thank you"
+    },
+    {
+      "probe": "ssn_-60dbfs_2s_r0",
+      "noise": "ssn",
+      "level_dbfs": -60,
+      "duration_s": 2,
+      "raw": "Thank you.",
+      "output": "thank you"
+    },
+    {
+      "probe": "ssn_-60dbfs_2s_r1",
+      "noise": "ssn",
+      "level_dbfs": -60,
+      "duration_s": 2,
+      "raw": "Thank you.",
+      "output": "thank you"
+    },
+    {
+      "probe": "ssn_-45dbfs_2s_r0",
+      "noise": "ssn",
+      "level_dbfs": -45,
+      "duration_s": 2,
+      "raw": "Thank you.",
+      "output": "thank you"
+    },
+    {
+      "probe": "ssn_-45dbfs_2s_r1",
+      "noise": "ssn",
+      "level_dbfs": -45,
+      "duration_s": 2,
+      "raw": "Thank you.",
+      "output": "thank you"
+    },
+    {
+      "probe": "ssn_-30dbfs_2s_r0",
+      "noise": "ssn",
+      "level_dbfs": -30,
+      "duration_s": 2,
+      "raw": "Thank you.",
+      "output": "thank you"
+    },
+    {
+      "probe": "ssn_-30dbfs_2s_r1",
+      "noise": "ssn",
+      "level_dbfs": -30,
+      "duration_s": 2,
+      "raw": "Thank you.",
+      "output": "thank you"
+    },
+    {
+      "probe": "ssn_-20dbfs_2s_r0",
+      "noise": "ssn",
+      "level_dbfs": -20,
+      "duration_s": 2,
+      "raw": "Thank you.",
+      "output": "thank you"
+    },
+    {
+      "probe": "ssn_-20dbfs_2s_r1",
+      "noise": "ssn",
+      "level_dbfs": -20,
+      "duration_s": 2,
+      "raw": "Thanks for watching!",
+      "output": "thanks for watching"
+    },
+    {
+      "probe": "ssn_-60dbfs_5s_r0",
+      "noise": "ssn",
+      "level_dbfs": -60,
+      "duration_s": 5,
+      "raw": "Thank you.",
+      "output": "thank you"
+    },
+    {
+      "probe": "ssn_-60dbfs_5s_r1",
+      "noise": "ssn",
+      "level_dbfs": -60,
+      "duration_s": 5,
+      "raw": "Thank you.",
+      "output": "thank you"
+    },
+    {
+      "probe": "ssn_-45dbfs_5s_r0",
+      "noise": "ssn",
+      "level_dbfs": -45,
+      "duration_s": 5,
+      "raw": "Thank you.",
+      "output": "thank you"
+    },
+    {
+      "probe": "ssn_-45dbfs_5s_r1",
+      "noise": "ssn",
+      "level_dbfs": -45,
+      "duration_s": 5,
+      "raw": "Thank you.",
+      "output": "thank you"
+    },
+    {
+      "probe": "ssn_-30dbfs_5s_r0",
+      "noise": "ssn",
+      "level_dbfs": -30,
+      "duration_s": 5,
+      "raw": "Thank you.",
+      "output": "thank you"
+    },
+    {
+      "probe": "ssn_-30dbfs_5s_r1",
+      "noise": "ssn",
+      "level_dbfs": -30,
+      "duration_s": 5,
+      "raw": "Thank you.",
+      "output": "thank you"
+    },
+    {
+      "probe": "ssn_-20dbfs_5s_r0",
+      "noise": "ssn",
+      "level_dbfs": -20,
+      "duration_s": 5,
+      "raw": "Thanks for watching!",
+      "output": "thanks for watching"
+    },
+    {
+      "probe": "ssn_-20dbfs_5s_r1",
+      "noise": "ssn",
+      "level_dbfs": -20,
+      "duration_s": 5,
+      "raw": "Thanks for watching!",
+      "output": "thanks for watching"
+    },
+    {
+      "probe": "ssn_-60dbfs_10s_r0",
+      "noise": "ssn",
+      "level_dbfs": -60,
+      "duration_s": 10,
+      "raw": "Thank you.",
+      "output": "thank you"
+    },
+    {
+      "probe": "ssn_-60dbfs_10s_r1",
+      "noise": "ssn",
+      "level_dbfs": -60,
+      "duration_s": 10,
+      "raw": "Thank you.",
+      "output": "thank you"
+    },
+    {
+      "probe": "ssn_-45dbfs_10s_r0",
+      "noise": "ssn",
+      "level_dbfs": -45,
+      "duration_s": 10,
+      "raw": "Thank you.",
+      "output": "thank you"
+    },
+    {
+      "probe": "ssn_-45dbfs_10s_r1",
+      "noise": "ssn",
+      "level_dbfs": -45,
+      "duration_s": 10,
+      "raw": "Thank you.",
+      "output": "thank you"
+    },
+    {
+      "probe": "ssn_-30dbfs_10s_r0",
+      "noise": "ssn",
+      "level_dbfs": -30,
+      "duration_s": 10,
+      "raw": "Thank you.",
+      "output": "thank you"
+    },
+    {
+      "probe": "ssn_-30dbfs_10s_r1",
+      "noise": "ssn",
+      "level_dbfs": -30,
+      "duration_s": 10,
+      "raw": "Thank you.",
+      "output": "thank you"
+    },
+    {
+      "probe": "ssn_-20dbfs_10s_r0",
+      "noise": "ssn",
+      "level_dbfs": -20,
+      "duration_s": 10,
+      "raw": "Thanks for watching!",
+      "output": "thanks for watching"
+    },
+    {
+      "probe": "ssn_-20dbfs_10s_r1",
+      "noise": "ssn",
+      "level_dbfs": -20,
+      "duration_s": 10,
+      "raw": "Thanks for watching!",
+      "output": "thanks for watching"
+    },
+    {
+      "probe": "ssn_-60dbfs_20s_r0",
+      "noise": "ssn",
+      "level_dbfs": -60,
+      "duration_s": 20,
+      "raw": "Thank you.",
+      "output": "thank you"
+    },
+    {
+      "probe": "ssn_-60dbfs_20s_r1",
+      "noise": "ssn",
+      "level_dbfs": -60,
+      "duration_s": 20,
+      "raw": "Thank you.",
+      "output": "thank you"
+    },
+    {
+      "probe": "ssn_-45dbfs_20s_r0",
+      "noise": "ssn",
+      "level_dbfs": -45,
+      "duration_s": 20,
+      "raw": "Thank you.",
+      "output": "thank you"
+    },
+    {
+      "probe": "ssn_-45dbfs_20s_r1",
+      "noise": "ssn",
+      "level_dbfs": -45,
+      "duration_s": 20,
+      "raw": "Thank you.",
+      "output": "thank you"
+    },
+    {
+      "probe": "ssn_-30dbfs_20s_r0",
+      "noise": "ssn",
+      "level_dbfs": -30,
+      "duration_s": 20,
+      "raw": "Thank you.",
+      "output": "thank you"
+    },
+    {
+      "probe": "ssn_-30dbfs_20s_r1",
+      "noise": "ssn",
+      "level_dbfs": -30,
+      "duration_s": 20,
+      "raw": "Thank you.",
+      "output": "thank you"
+    },
+    {
+      "probe": "ssn_-20dbfs_20s_r0",
+      "noise": "ssn",
+      "level_dbfs": -20,
+      "duration_s": 20,
+      "raw": "Thank you.",
+      "output": "thank you"
+    },
+    {
+      "probe": "ssn_-20dbfs_20s_r1",
+      "noise": "ssn",
+      "level_dbfs": -20,
+      "duration_s": 20,
+      "raw": "Thank you for watching.",
+      "output": "thank you for watching"
+    },
+    {
+      "probe": "ssn_-60dbfs_30s_r0",
+      "noise": "ssn",
+      "level_dbfs": -60,
+      "duration_s": 30,
+      "raw": "Thank you.",
+      "output": "thank you"
+    },
+    {
+      "probe": "ssn_-60dbfs_30s_r1",
+      "noise": "ssn",
+      "level_dbfs": -60,
+      "duration_s": 30,
+      "raw": "Thank you.",
+      "output": "thank you"
+    },
+    {
+      "probe": "ssn_-45dbfs_30s_r0",
+      "noise": "ssn",
+      "level_dbfs": -45,
+      "duration_s": 30,
+      "raw": "Thank you.",
+      "output": "thank you"
+    },
+    {
+      "probe": "ssn_-45dbfs_30s_r1",
+      "noise": "ssn",
+      "level_dbfs": -45,
+      "duration_s": 30,
+      "raw": "Thank you.",
+      "output": "thank you"
+    },
+    {
+      "probe": "ssn_-30dbfs_30s_r0",
+      "noise": "ssn",
+      "level_dbfs": -30,
+      "duration_s": 30,
+      "raw": "Thank you.",
+      "output": "thank you"
+    },
+    {
+      "probe": "ssn_-30dbfs_30s_r1",
+      "noise": "ssn",
+      "level_dbfs": -30,
+      "duration_s": 30,
+      "raw": "Thank you.",
+      "output": "thank you"
+    },
+    {
+      "probe": "ssn_-20dbfs_30s_r0",
+      "noise": "ssn",
+      "level_dbfs": -20,
+      "duration_s": 30,
+      "raw": "Thank you.",
+      "output": "thank you"
+    },
+    {
+      "probe": "ssn_-20dbfs_30s_r1",
+      "noise": "ssn",
+      "level_dbfs": -20,
+      "duration_s": 30,
+      "raw": "Thank you.",
+      "output": "thank you"
+    }
+  ]
+}

@@ -17,6 +17,7 @@ import pytest
 
 from config import TARGET_SR, NOISE_TYPES, RANDOM_SEED
 from src.analysis.masking import (
+    distortion_sii,
     speech_weighted_snr, band_snr_profile, modulation_stats, decompose_masking,
     power_spectrum,
 )
@@ -188,9 +189,19 @@ def test_band_profile_covers_every_band():
     assert all(np.isfinite(b["in_band_snr_db"]) for b in profile)
 
 
-def test_power_spectrum_is_normalized():
-    x = _speechlike(duration_s=1.0)
-    assert pytest.approx(power_spectrum(x, SR)[1].sum(), rel=1e-9) == 1.0
+def test_power_spectrum_is_a_fraction_of_total_power():
+    """A flat signal has nothing below the Welch resolution: fractions sum to ~1."""
+    x = np.random.default_rng(0).standard_normal(SR * 4)
+    assert power_spectrum(x, SR)[1].sum() == pytest.approx(1.0, abs=0.02)
+
+
+def test_power_spectrum_does_not_hide_pink_infrasonic_power():
+    """
+    Pink noise keeps ~40 % of its power below ~15 Hz, invisible to Welch. That
+    share must stay OUT of the speech bands, or pink's in-band SNR is understated.
+    """
+    pink = generate_pink_noise(SR * 8, np.random.default_rng(1))
+    assert power_spectrum(pink, SR)[1].sum() < 0.8
 
 
 # ---------------------------------------------------------- modulation ----
@@ -291,3 +302,36 @@ def test_paired_significance_is_reproducible():
 def test_decomposition_handles_zero_total_without_dividing_by_zero():
     d = decompose_masking({"white": 3.0, "ssn": 3.0, "cafe": 3.0}, baseline_wer=3.0)
     assert d["informational_share"] is None
+
+
+def test_decomposition_gives_no_share_when_cafe_is_below_clean():
+    """At 20 dB cafe sits below clean; dividing two negatives gave a fake '69%'."""
+    d = decompose_masking({"white": 3.53, "ssn": 3.27, "cafe": 2.91}, baseline_wer=3.44)
+    assert d["total_excess_wer"] < 0
+    assert d["informational_share"] is None
+
+
+# ------------------------------------------------------ distortion SII ----
+
+def test_distortion_sii_of_an_unchanged_signal_is_one():
+    x = _speechlike()
+    assert distortion_sii(x, x.copy(), SR) == pytest.approx(1.0)
+
+
+def test_distortion_sii_matches_standard_sii_for_additive_noise():
+    """For additive noise the generalisation must reduce to the usual band SNR."""
+    rng = np.random.default_rng(RANDOM_SEED)
+    speech = rng.standard_normal(SR * 8)
+    noise = generate_pink_noise(SR * 8, np.random.default_rng(1))
+    noise *= np.sqrt(np.mean(speech ** 2) / np.mean(noise ** 2)) / 10 ** (5 / 20)  # 5 dB
+    standard = speech_weighted_snr(speech, noise, SR, 5.0)
+    assert distortion_sii(speech, speech + noise, SR) == pytest.approx(standard, abs=0.02)
+
+
+def test_distortion_sii_scores_a_removed_band_as_lost():
+    """Telephone band-limiting removes the 4 and 8 kHz octaves and most of 250 Hz."""
+    from src.augmentation.axis_b_channel import apply_telephonic_bandpass
+    x = np.random.default_rng(3).standard_normal(SR * 8)      # flat: every band populated
+    sii = distortion_sii(x, apply_telephonic_bandpass(x, SR), SR)
+    passband_weight = 0.1671 + 0.2373 + 0.2648                 # 500, 1000, 2000 Hz
+    assert passband_weight - 0.05 < sii < passband_weight + 0.10

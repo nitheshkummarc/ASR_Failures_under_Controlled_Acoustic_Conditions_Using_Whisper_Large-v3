@@ -57,6 +57,27 @@ def insert_silence(y: np.ndarray, sr: int, duration_s: float, position: str) -> 
         raise ValueError("position must be 'start' or 'middle'")
 
 
+def remove_inserted_silence(y_deg: np.ndarray, sr: int, duration_s: float,
+                            position: str, clean_len: int) -> np.ndarray:
+    """
+    Exact inverse of insert_silence: returns the original signal.
+
+    Used to time-align a silence condition with its clean source before
+    comparing them, so the comparison is of the same speech.
+
+    Args:
+        y_deg:      output of insert_silence.
+        clean_len:  length of the original signal (locates the midpoint).
+    """
+    n = int(duration_s * sr)
+    if position == 'start':
+        return y_deg[n:]
+    elif position == 'middle':
+        mid = clean_len // 2
+        return np.concatenate((y_deg[:mid], y_deg[mid + n:]))
+    raise ValueError("position must be 'start' or 'middle'")
+
+
 # =============================================================================
 # DSP Core: Axis C (Temporal - Time Scale Modification via Phase Vocoder)
 # =============================================================================
@@ -144,5 +165,16 @@ def time_stretch_phase_vocoder(y: np.ndarray, rate: float, n_fft=2048, hop_lengt
 
     # 5. Inverse STFT
     _, y_stretched = scipy.signal.istft(Zxx_new, fs=TARGET_SR, nperseg=n_fft, noverlap=n_fft-hop_length, window='hann')
+
+    # 6. Restore the input level. Overlap-adding frames whose phases were
+    #    re-synthesised partly cancels, so the raw output is ~4.3 dB quieter
+    #    (power x0.37, roughly flat across bands). Left in, the rate conditions
+    #    would change loudness as a second, uncontrolled variable — the same
+    #    reason Axis B uses zero-phase filtering. Matching RMS keeps rate the
+    #    only thing that changes.
+    in_rms = float(np.sqrt(np.mean(np.square(y))))
+    out_rms = float(np.sqrt(np.mean(np.square(y_stretched))))
+    if out_rms > 1e-12:
+        y_stretched = y_stretched * (in_rms / out_rms)
 
     return y_stretched

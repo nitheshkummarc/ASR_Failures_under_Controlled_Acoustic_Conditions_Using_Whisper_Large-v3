@@ -151,6 +151,29 @@ def silence_condition(position: str, duration_s: float) -> str:
     return f"silence_{position[:3]}_{duration_s}s"
 
 
+# Human-readable names for figures. Code names (cafe, stretch_1.2x, ...) stay the
+# identifiers everywhere else; only plot labels go through these.
+NOISE_DISPLAY = {"white": "White", "pink": "Pink", "cafe": "Cafe babble", "ssn": "SSN"}
+
+
+def display_condition(name: str) -> str:
+    """'white 20dB' -> 'White 20 dB', 'stretch_1.2x' -> 'Rate 1.2x', etc."""
+    parts = name.split()
+    if len(parts) == 2 and parts[0] in NOISE_DISPLAY and parts[1].endswith("dB"):
+        return f"{NOISE_DISPLAY[parts[0]]} {parts[1][:-2]} dB"
+    if name == "telephonic":
+        return "Telephone band"
+    if name == "baseline":
+        return "Clean"
+    if name.startswith("stretch_"):
+        return f"Rate {name[len('stretch_'):-1]}×"
+    if name.startswith("silence_"):
+        pos, dur = name[len("silence_"):].split("_")
+        where = {"sta": "start", "mid": "mid"}.get(pos, pos)
+        return f"Silence {dur[:-1]} s ({where})"
+    return NOISE_DISPLAY.get(name, name)
+
+
 # Every Axis C condition, in generation order. Used by scripts 03, 06 and
 # verify_acoustics.py so a new condition only has to be added in one place.
 AXIS_C_CONDITIONS = (
@@ -171,7 +194,39 @@ NUM_CEPS_LABEL_LOW = 1
 NUM_CEPS_LABEL_HIGH = 13
 
 # =============================================================================
-# 8. ENSURE OUTPUT DIRECTORIES EXIST
+# 8. HALLUCINATION BAG (src/analysis/hallucination.py)
+# =============================================================================
+# The phrases treated as hallucinations are NOT typed in by hand. They are what
+# Whisper itself outputs when fed audio that contains no speech -- the "Bag of
+# Hallucinations" method of Baranski et al., ICASSP 2025 (arXiv:2501.11378).
+# tools/build_hallucination_bag.py builds it once on the GPU and writes the JSON
+# below, which is committed so stage 6 never needs a GPU.
+HALLUCINATION_BAG_PATH = METADATA_DIR / "hallucination_bag.json"
+HALLUCINATION_PROBE_DIR = DEGRADED_DIR / "hallucination_probe"
+
+# Non-speech probe grid. "silence" is digital zero (level ignored). Cafe babble
+# is excluded: it contains real speech, so Whisper transcribing it is not a
+# hallucination. Levels are RMS dBFS, spanning near-silent room tone up to a
+# clearly audible floor.
+HALLUCINATION_PROBE_NOISES = ["silence", "white", "pink", "ssn"]
+HALLUCINATION_PROBE_LEVELS_DBFS = [-60, -45, -30, -20]
+HALLUCINATION_PROBE_DURATIONS_S = [1, 2, 5, 10, 20, 30]
+HALLUCINATION_PROBE_REPEATS = 2
+
+# Bag filters, after the paper: an output must recur (it is a habit, not a
+# one-off), and it must be improbable as ordinary English, or bag entries like
+# "the" or "a" would strip genuine recognition errors. The paper scores with an
+# n-gram LM; here a unigram LM over the LibriSpeech transcripts disjoint from
+# the 150 test utterances stands in for it (offline, no extra dependency).
+HALLUCINATION_BAG_MIN_COUNT = 2
+HALLUCINATION_BAG_MAX_LOG10_PROB = -4.0
+
+# Repetition loops: an inserted run that repeats the N words just before it.
+# N >= 2, so a single doubled word (an ordinary insertion) is not called a loop.
+HALLUCINATION_LOOP_MIN_WORDS = 2
+
+# =============================================================================
+# 9. ENSURE OUTPUT DIRECTORIES EXIST
 # =============================================================================
 for _dir in [DATA_DIR, METADATA_DIR, RESULTS_DIR, AXIS_A_DIR, AXIS_B_DIR, AXIS_C_DIR, NOISE_SOURCES_DIR]:
     _dir.mkdir(parents=True, exist_ok=True)

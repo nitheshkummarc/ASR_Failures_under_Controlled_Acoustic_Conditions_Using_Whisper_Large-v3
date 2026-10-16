@@ -29,16 +29,36 @@ def test_hyphen_becomes_a_word_boundary():
 
 
 def test_numbers_become_words():
-    assert normalize_text("1929") == "nineteen hundred and twenty-nine".replace("-", " ") \
-        or normalize_text("1929") == "one thousand nine hundred and twenty nine"
+    assert normalize_text("60 feet") == "sixty feet"
+    assert normalize_text("2500") == "two thousand five hundred"
+
+
+def test_years_are_read_the_way_librispeech_writes_them():
+    """Both forms below are taken from real LibriSpeech references in this corpus."""
+    assert normalize_text("in 1707,") == "in seventeen o seven"
+    assert normalize_text("toast, 1726.") == "toast seventeen twenty six"
+    assert normalize_text("1900") == "nineteen hundred"
+
+
+def test_thousands_separator_does_not_split_the_number():
+    """'9,500' once became 'ninefive hundred': the comma split it in two."""
+    assert normalize_text("about 9,500 feet") == "about nine thousand five hundred feet"
+    assert normalize_text("1,000,000") == "one million"
+
+
+def test_list_commas_are_not_mistaken_for_separators():
+    assert normalize_text("3 o'clock came, 4, 5, 6, and") == "three oclock came four five six and"
 
 
 def test_decimals_are_spoken_digit_by_digit():
     assert normalize_text("3.14") == "three point one four"
 
 
-def test_ordinal_suffix_is_stripped_before_conversion():
-    assert normalize_text("1st") == "one"
+def test_ordinals_become_ordinal_words():
+    """Stripping the suffix instead gave '21st' -> 'twenty one'."""
+    assert normalize_text("1st") == "first"
+    assert normalize_text("the 21st day") == "the twenty first day"
+    assert normalize_text("3RD") == "third"
 
 
 def test_digits_glued_to_letters_are_left_alone():

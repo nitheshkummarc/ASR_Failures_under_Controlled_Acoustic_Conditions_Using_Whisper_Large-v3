@@ -18,7 +18,9 @@ from config import (
     STRETCH_RATES, SILENCE_CONFIGS, stretch_condition, silence_condition,
 )
 from src.augmentation.axis_b_channel import apply_telephonic_bandpass
-from src.augmentation.axis_c_temporal import insert_silence, time_stretch_phase_vocoder
+from src.augmentation.axis_c_temporal import (
+    insert_silence, remove_inserted_silence, time_stretch_phase_vocoder,
+)
 
 SR = TARGET_SR
 
@@ -170,3 +172,18 @@ def test_condition_names_match_the_on_disk_convention():
     assert silence_condition("start", 0.5) == "silence_sta_0.5s"
     assert silence_condition("middle", 1.0) == "silence_mid_1.0s"
     assert silence_condition("middle", 2.0) == "silence_mid_2.0s"
+
+@pytest.mark.parametrize("position,duration", [("start", 0.5), ("middle", 1.0), ("middle", 2.0)])
+def test_remove_inserted_silence_is_the_exact_inverse(position, duration):
+    y = np.random.default_rng(7).standard_normal(16000 * 3 + 1)   # odd length: midpoint rounding
+    padded = insert_silence(y, 16000, duration, position)
+    assert np.array_equal(remove_inserted_silence(padded, 16000, duration, position, len(y)), y)
+
+
+@pytest.mark.parametrize("rate", [1.2, 1.5])
+def test_time_stretch_preserves_level(rate):
+    """The phase vocoder alone drops ~4.3 dB; the rate conditions must not change loudness."""
+    t = np.arange(16000 * 3) / 16000
+    y = 0.3 * np.sin(2 * np.pi * 220 * t) + 0.1 * np.random.default_rng(0).standard_normal(len(t))
+    out = time_stretch_phase_vocoder(y, rate)
+    assert np.sqrt(np.mean(out ** 2)) == pytest.approx(np.sqrt(np.mean(y ** 2)), rel=1e-6)

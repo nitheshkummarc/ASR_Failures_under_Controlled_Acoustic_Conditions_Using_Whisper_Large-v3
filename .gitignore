@@ -59,6 +59,10 @@ node_modules/
 CLAUDE.md
 Speech_FinalPJT_eval.pdf
 report/
+SP MID.pdf
+logs/
+ASR_Project_Proposal.md
+B05.pdf
 
 # LaTeX build products, in case a report is ever compiled in-tree
 *.aux

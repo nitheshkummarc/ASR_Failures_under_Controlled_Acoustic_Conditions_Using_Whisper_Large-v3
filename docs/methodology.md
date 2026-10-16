@@ -214,35 +214,47 @@ Global WER:
 
 | Condition | WER |
 |---|---|
-| Clean baseline | **3.44 %** |
-| Telephonic (300–3400 Hz) | 3.27 % |
-| White 20 / 15 / 10 / 5 dB | 3.53 / 3.89 / 4.25 / **6.28 %** |
-| Pink 20 / 15 / 10 / 5 dB | 3.83 / 4.02 / 3.96 / **4.78 %** |
-| SSN 20 / 15 / 10 / 5 dB | 3.27 / 3.40 / 3.73 / **5.20 %** |
-| Café 20 / 15 / 10 / 5 dB | 2.91 / 3.24 / 4.12 / **9.39 %** |
-| Silence 0.5 s start / 1.0 s mid / 2.0 s mid | 4.12 / 3.40 / 3.53 % |
-| Rate 1.2× / 1.5× | 5.86 / **11.19 %** |
+| Clean baseline | **3.01 %** |
+| Telephonic (300–3400 Hz) | 3.11 % |
+| White 20 / 15 / 10 / 5 dB | 3.27 / 3.63 / 3.99 / **6.02 %** |
+| Pink 20 / 15 / 10 / 5 dB | 3.66 / 3.76 / 3.70 / **4.35 %** |
+| SSN 20 / 15 / 10 / 5 dB | 2.68 / 2.94 / 3.21 / **4.97 %** |
+| Café 20 / 15 / 10 / 5 dB | 2.55 / 2.72 / 3.70 / **9.00 %** |
+| Silence 0.5 s start / 1.0 s mid / 2.0 s mid | 3.70 / 3.14 / 3.11 % |
+| Rate 1.2× / 1.5× | 5.76 / **11.09 %** |
+
+An earlier run reported every figure 0.2–0.6 pp higher. The text normalizer
+mis-converted Whisper's digits — "9,500" became "ninefive hundred", and "1707"
+became "one thousand seven hundred and seven" against a reference of "seventeen o
+seven" — so formatting was being scored as recognition error. The normalizer now
+strips thousands separators, reads 1100–1999 as years the way LibriSpeech writes
+them, and converts ordinals to ordinal words; the whole pipeline was re-run.
+Every stage now also stores Whisper's raw output, so a future normalization
+change can be re-scored without re-running inference.
 
 Significance is assessed by a paired bootstrap over utterances (4,000 resamples)
 alongside a Wilcoxon signed-rank test. Only **9 of the 22 conditions** are
-significantly worse than clean: white 10/5 dB, pink 5 dB, café 10/5 dB, SSN 5 dB,
-silence-at-start, and both rate conditions. Everything at 20 and 15 dB,
-telephonic, and both mid-utterance silence conditions have intervals straddling
-zero.
+significantly worse than clean: white 10/5 dB, pink 15/5 dB, café 5 dB, SSN 5 dB,
+silence-at-start, and both rate conditions. Everything at 20 dB, telephonic, and
+both mid-utterance silence conditions have intervals straddling zero.
 
 **1. Babble damages recognition through two separable mechanisms.** At 5 dB café
-reaches 9.39 %, versus 6.28 % (white) and 4.78 % (pink) at the same measured SNR.
+reaches 9.00 %, versus 6.02 % (white) and 4.35 % (pink) at the same measured SNR.
 The naive reading — "SNR is held constant, so the difference cannot be
 energetic" — does not hold, because café and white differ in spectrum as well as
 content. The SSN control settles it:
 
 | SNR | energetic (SSN − white) | informational (café − SSN) |
 |---|---|---|
-| 20 dB | −0.26 | −0.36 |
-| 15 dB | −0.49 | −0.16 |
-| 10 dB | −0.52 | +0.39 |
-| **5 dB** | **−1.08** | **+4.19** |
-| **pooled (600 cells)** | **−0.59** `[−0.99, −0.19]`, p = 0.0008 | **+1.01** `[+0.59, +1.47]`, p = 0.00002 |
+| 20 dB | −0.59 | −0.13 |
+| 15 dB | −0.69 | −0.23 |
+| 10 dB | −0.79 | +0.49 |
+| **5 dB** | **−1.05** | **+4.02** |
+| **pooled (600 cells)** | **−0.78** `[−1.14, −0.41]`, p = 0.00002 | **+1.04** `[+0.63, +1.47]`, p = 0.00001 |
+
+The energetic term is significant on its own at 15, 10 and 5 dB (20 dB is
+disputed: bootstrap yes, Wilcoxon p = 0.07); the informational term only at 5 dB.
+`tools/masking_contrasts.py` extends this to every noise as the reference.
 
 Two results follow.
 
@@ -250,14 +262,17 @@ Two results follow.
 is **less** damaging than spreading it flat at the same broadband SNR. The
 spectra explain why: the experiment equalises broadband RMS, but recognition
 depends on the SNR where the phonetic information sits. At a nominal 5 dB the
-in-band SNR in the 1–4 kHz consonant region is −1.05 dB for white, +1.63 dB for
-pink and +2.54 dB for SSN — white dumps 87.6 % of its energy above 1 kHz, where
-speech carries only 11.2 % of its own. Pink sitting between white and SSN is the
-same effect at an intermediate degree, and its ranking follows.
+in-band SNR in the 1–4 kHz consonant region is −1.05 dB for white, +3.77 dB for
+SSN and +4.52 dB for pink — white dumps 87.5 % of its energy above 1 kHz, where
+speech carries only 11.2 % of its own. Pink is gentlest because about 63 % of its
+power lies below 50 Hz: it counts toward the broadband SNR but masks nothing,
+and pink has the lowest WER of the four at 5 dB. (An earlier version reported
+pink at +1.63 dB: the band analysis normalised spectra by their Welch total,
+which cannot see that infrasonic power and spread it into the speech bands.)
 
 *Informational masking is threshold-like.* It is statistically indistinguishable
-from zero at 20, 15 and 10 dB, then accounts for +4.19 pp at 5 dB — about 70 % of
-café's total excess over baseline, with 62 of 150 utterances worse against 12
+from zero at 20, 15 and 10 dB, then accounts for +4.02 pp at 5 dB — about 67 % of
+café's total excess over baseline, with 65 of 150 utterances worse against 11
 better (p < 0.00001). Since café and SSN share a magnitude spectrum to within
 `|ΔSII| = 0.0005` and are mixed at the same verified SNR, that gap cannot be
 energetic.
@@ -271,24 +286,25 @@ dips — the modulation contribution is small, but it is not zero and should not
 be described as pure informational masking.
 
 **2. Band-limiting is free.** Discarding everything outside 300–3400 Hz costs
-nothing measurable (3.27 % versus a 3.44 % baseline), so the information the
+nothing measurable (3.11 % versus a 3.01 % baseline), so the information the
 model relies on lives inside the telephone band.
 
-**3. The largest single degradation is temporal.** Rate 1.5× yields 11.19 % on
-audio containing no added noise whatsoever — a spectrally clean signal, simply
-traversed faster. This points at decoder cross-attention alignment rather than
-the acoustic front end.
+**3. The largest single degradation is temporal.** Rate 1.5× yields 11.09 % on
+audio containing no added noise whatsoever — a signal whose long-term spectrum is
+almost unchanged, simply traversed faster. An audibility index predicts only
+~0.6 pp of it. That points at decoder alignment, though local phase-vocoder
+artefacts (smeared onsets) could contribute and this design cannot separate them.
 
 **4. Café at high SNR scores BELOW the clean baseline — and it is a
-hallucination artifact, not better recognition.** Café at 20 dB (2.91 %) and
-15 dB (3.24 %) both beat the clean baseline (3.44 %). Decomposing the error
+hallucination artifact, not better recognition.** Café at 20 dB (2.55 %) and
+15 dB (2.72 %) both beat the clean baseline (3.01 %). Decomposing the error
 counts shows the cause is not improved accuracy:
 
 | baseline vs café 20 dB | subs | ins | dels | total |
 |---|---|---|---|---|
-| clean baseline | 65 | **32** | 8 | 105 |
-| café 20 dB | 70 | **8** | 11 | 89 |
-| delta | +5 | **−24** | +3 | −16 |
+| clean baseline | 61 | **25** | 6 | 92 |
+| café 20 dB | 68 | **1** | 9 | 78 |
+| delta | +7 | **−24** | +3 | −14 |
 
 Substitutions and deletions both *rise*; the entire gain comes from insertions
 collapsing. Inspecting those rows identifies the mechanism precisely: on clean
@@ -297,26 +313,44 @@ that is absent from the reference. It is the classic Whisper end-of-audio
 hallucination, where trailing low-energy audio lets the language-model prior
 take over before the EOS token.
 
-Counting utterances whose transcript ends in such a phrase absent from the
-reference:
+Counting utterances whose transcript contains such a phrase as inserted words
+(absent from the reference):
 
 | condition | rate |
 |---|---|
 | clean baseline | 6.7 % (10/150) |
-| white 20/15/10/5 dB | 6.7 / 8.0 / 7.3 / 4.0 % |
-| pink 20/15/10/5 dB | 10.0 / 12.7 / 8.0 / 7.3 % |
+| white 20/15/10/5 dB | 7.3 / 8.0 / 7.3 / 4.0 % |
+| pink 20/15/10/5 dB | 10.7 / 12.7 / 8.0 / 7.3 % |
 | **SSN 20/15/10/5 dB** | **3.3 / 4.0 / 1.3 / 0.0 %** |
-| telephonic | 6.7 % |
+| telephonic | 7.3 % |
 | silence start / mid | 11.3 / 6.7–7.3 % |
 | rate 1.2× / 1.5× | 2.0 / 0.0 % |
 | **café — all four SNRs** | **0.0 % (0/150)** |
 
-Detection is deliberately conservative: a trailing run is stripped only when it
-sits past the reference's final word AND matches a closed, documented list of
-known Whisper closing phrases (`src/analysis/hallucination.py`). A genuine
-mis-transcription of the last few words keeps its errors. The list is fixed
-rather than data-mined, so the correction cannot quietly grow to fit a desired
-result, and it is applied identically to every condition including clean.
+The phrases are not typed in by hand. Following the "Bag of Hallucinations"
+method (Barański et al., ICASSP 2025, arXiv:2501.11378), they are learned from
+Whisper itself: `tools/build_hallucination_bag.py` feeds the same Whisper
+configuration 150 clips that contain no speech (digital silence, and white, pink
+and speech-shaped noise at −60 to −20 dBFS, 1–30 s), so anything it transcribes is
+a hallucination by construction. Outputs that recur and are improbable as ordinary
+English (log10 unigram probability ≤ −4 under the LibriSpeech transcripts disjoint
+from the test set, standing in for the paper's n-gram LM) form the bag. On this
+setup Whisper produced text for all 150 clips: `"thank you"` 141 times and
+`"thanks for watching"` 7 times — the same top two the paper reports — and those
+two are the bag (`metadata/hallucination_bag.json`, every probe's output included).
+
+Detection is deliberately conservative: only words that jiwer aligns as
+**insertions** (no reference counterpart) can be removed, and within an insertion
+run only a bag phrase or a repetition loop of two or more words. A word that
+matched or substituted a reference word is never touched, so a genuine
+mis-transcription keeps its errors. The bag comes only from non-speech audio,
+never from the results, with its parameters fixed in `config.py` before it was
+built, so the correction cannot quietly grow to fit a desired result; it is
+applied identically to every condition including clean. Using the alignment
+rather than "the words after the last reference word" also fixed two misses of
+the earlier hand-written rule — a reference ending in "you" (the anchor landed
+inside "thank you"), and a transcript with deletions elsewhere — which is why
+white 20 dB, pink 20 dB and telephonic each gained one detected utterance.
 
 Café is the only condition that suppresses the effect completely at every SNR.
 The SSN control shows the cause is *partly but not wholly* spectral: SSN shares
@@ -330,9 +364,9 @@ Re-scoring with the trailing phrase stripped removes the anomaly entirely:
 
 |  | as measured | hallucination-robust |
 |---|---|---|
-| clean baseline | 3.44 % | 2.78 % |
-| café 20 dB | 2.91 % | 2.91 % |
-| verdict | café beats clean by 0.52 pp | café is **worse** by 0.13 pp |
+| clean baseline | 3.01 % | 2.36 % |
+| café 20 dB | 2.55 % | 2.55 % |
+| verdict | café beats clean by 0.46 pp | café is **worse** by 0.20 pp |
 
 The full per-condition audit is written to `results/hallucination_audit.csv` by
 stage 6 and plotted as `results/plots/summary/hallucination_analysis.png`. The
@@ -341,12 +375,11 @@ number, because deleting words from a hypothesis before scoring is not standard
 WER and must not masquerade as it.
 
 A paired bootstrap over the 150 utterances shows the apparent advantage was
-never significant to begin with: café 20 dB against clean is −0.52 pp with a 95 %
-interval of [−1.10, +0.03] (Wilcoxon p = 0.045, which does not survive correction
-for the 22 conditions tested). After the hallucination correction the sign
-reverses and café sits +0.13 pp above clean. Two conditions remain marginally
-below the corrected baseline — telephonic (−0.16) and 1.0 s mid-utterance silence
-(−0.10) — and both have intervals comfortably straddling zero.
+never significant to begin with: café 20 dB against clean is −0.46 pp with a 95 %
+interval of [−1.06, +0.13] (Wilcoxon p = 0.10). After the hallucination
+correction the sign reverses and café sits +0.20 pp above clean. No condition
+remains below the corrected baseline; the closest are telephonic (+0.03) and
+1.0 s mid-utterance silence (+0.07).
 
 So the correct claim is **not** "mild café babble improves recognition". It is
 that mild café babble *suppresses end-of-audio hallucination*, and because WER
@@ -354,35 +387,38 @@ charges those hallucinated words as insertions, the suppression shows up as an
 apparent accuracy gain. Underlying recognition is marginally worse, as expected.
 
 **5. Spectral distortion predicts WER within a masker and inverts across
-maskers.** Pooled over all 2,400 Axis A trials, Pearson finds nothing:
+maskers.** Pooled over all 2,400 Axis A trials, Pearson finds almost nothing:
 
 | Feature | Pearson r | p | Spearman ρ | p |
 |---|---|---|---|---|
-| MFCC MSE | 0.028 | 0.163 | 0.080 | **8.6e-05** |
-| STE MSE | 0.008 | 0.696 | 0.144 | **1.4e-12** |
-| ZCR MSE | 0.026 | 0.211 | 0.004 | 0.843 |
+| MFCC MSE | 0.046 | 0.024 | 0.083 | **4.7e-05** |
+| STE MSE | 0.014 | 0.495 | 0.144 | **1.4e-12** |
+| ZCR MSE | 0.024 | 0.247 | 0.004 | 0.843 |
+
+(MFCC's Pearson p = 0.024 is nominally significant, but r = 0.046 explains under
+0.3 % of the variance.)
 
 Two of the three are significant under Spearman, so the relationship exists but
 is not linear — reporting Pearson alone (as earlier versions of this document
 did) understates it. Within a fixed noise type the correlation is positive and
-significant for café (r = 0.206, p = 3.7e-07) and SSN (r = 0.120, p = 0.003),
-and absent for white (r = 0.017) and pink (r = 0.073).
+significant for café (r = 0.208, p = 2.7e-07), SSN (r = 0.129, p = 0.001) and
+pink (r = 0.124, p = 0.002), and absent for white (r = 0.049, p = 0.23).
 
 Between noise types it runs the other way:
 
 | Condition | mean MFCC MSE | Global WER |
 |---|---|---|
-| telephonic | **831.8** | 3.27 % |
-| white 5 dB | 244.9 | 6.28 % |
-| pink 5 dB | 93.7 | 4.78 % |
-| SSN 5 dB | 49.7 | 5.20 % |
-| café 5 dB | **33.5** | 9.39 % |
+| telephonic | **831.8** | 3.11 % |
+| white 5 dB | 244.9 | 6.02 % |
+| pink 5 dB | 93.7 | 4.35 % |
+| SSN 5 dB | 49.7 | 4.97 % |
+| café 5 dB | **33.5** | 9.00 % |
 
 Telephonic generates the largest feature deviation in the entire study — 25×
 café's — at no measurable cost in WER, while café generates the smallest and is
 the most damaging additive condition. The positive within-masker trend and the
-negative between-masker trend cancel when pooled, which is why the naive test
-reads zero: a Simpson's paradox rather than a null result.
+negative between-masker trend nearly cancel when pooled, which is why the naive
+test reads almost zero: a Simpson's paradox rather than a null result.
 
 The implication is the same one finding 1 reaches from the masking side and
 finding 3 from the temporal side: what determines recognition failure is not how
@@ -451,7 +487,8 @@ written at unit standard deviation as PCM_16, clipping 29.9 % of its samples. Th
 defect was latent in the original run, which used the freshly generated
 in-memory buffer; it only manifested on a later run that LOADED the cached file,
 which shifted every cafe figure by up to 0.4 pp. Regenerating with peak
-normalisation restored the original numbers exactly (2.91 / 3.24 / 4.12 / 9.39),
+normalisation restored the original numbers exactly (2.91 / 3.24 / 4.12 / 9.39,
+as scored before the 2026-10-11 normalizer fix),
 which is what identifies the cache round-trip rather than the generator as the
 culprit. The same defect affected the SSN control and broke its spectral match to
 cafe (`|ΔSII|` 0.0172, now 0.0005).
@@ -480,7 +517,7 @@ exact value. Milder conditions were perfectly stable across the rebuild.
   spontaneous or accented speech.
 - Café babble is synthetic (LibriSpeech speakers overlaid), not recorded
   ambience. It lacks room acoustics and non-speech restaurant sounds.
-- `int8` quantization raises the clean baseline slightly (3.44 % measured versus
+- `int8` quantization raises the clean baseline slightly (3.01 % measured versus
   ~2.7 % published for the unquantized model), so absolute WER figures are
   specific to this configuration; the relative comparisons are the result.
 - Feature deviation is measured only as MSE of MFCC/STE/ZCR. A null correlation

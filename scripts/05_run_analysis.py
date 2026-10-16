@@ -33,10 +33,17 @@ import numpy as np
 import matplotlib
 matplotlib.use("Agg")  # headless: no display needed, and avoids a Tk dependency
 import matplotlib.pyplot as plt
+
+# Text sized for print. The report shrinks single-column figures to ~3.5 in, so
+# figures are drawn near that size with 10-12 pt text (~7-8 pt once printed).
+plt.rcParams.update({
+    "font.size": 11, "axes.titlesize": 12, "axes.labelsize": 11,
+    "xtick.labelsize": 10, "ytick.labelsize": 10, "legend.fontsize": 10,
+})
 from scipy.stats import pearsonr, spearmanr
 
 from config import (
-    RESULTS_DIR, SNR_LEVELS, NOISE_TYPES,
+    RESULTS_DIR, SNR_LEVELS, NOISE_TYPES, NOISE_DISPLAY, display_condition,
     STRETCH_RATES, SILENCE_CONFIGS, stretch_condition, silence_condition,
 )
 from src.analysis.masking import decompose_masking
@@ -158,7 +165,8 @@ def plot_error_composition(labels, totals, title, out_path):
     plt.close(fig)
 
 
-def plot_severity_curve(ax, x, series, baseline_wer, xlabel, title, invert_x=False):
+def plot_severity_curve(ax, x, series, baseline_wer, xlabel, title, invert_x=False,
+                        annotate=True):
     """
     WER against a severity parameter. One line per family.
 
@@ -174,17 +182,20 @@ def plot_severity_curve(ax, x, series, baseline_wer, xlabel, title, invert_x=Fal
     for name, entry in series.items():
         xs, values, colour = entry if len(entry) == 3 else (x, entry[0], entry[1])
         ax.plot(xs, values, marker="o", label=name, color=colour)
-        for xi, value in zip(xs, values):
+        # Curves that bunch together (Axis A at high SNR) get no value labels:
+        # they would overlap, and the values are tabulated in the report.
+        for xi, value in zip(xs, values if annotate else []):
             if value is None or (isinstance(value, float) and np.isnan(value)):
                 continue
             ax.annotate(f"{value:.2f}", (xi, value), textcoords="offset points",
-                        xytext=(0, 7), ha="center", fontsize=8, color=colour)
+                        xytext=(0, 6), ha="center", fontsize=9, color=colour)
     ax.axhline(baseline_wer, color=BASELINE_COLOUR, linestyle="--",
                label=f"Clean baseline = {baseline_wer:.2f}%")
     ax.set_xticks(x)
     ax.set_xlabel(xlabel)
-    ax.set_ylabel("Global WER %")
-    ax.set_title(title)
+    ax.set_ylabel("Word error rate (%)")
+    if title:
+        ax.set_title(title, loc="left")
     if invert_x:
         ax.invert_xaxis()  # severity increases left to right
     ax.legend()
@@ -272,13 +283,13 @@ def run_analysis(test_mode: bool):
     snrs_desc = sorted(SNR_LEVELS, reverse=True)
 
     # ---- A1. Degradation curves (WER vs SNR) ----
-    fig, ax = plt.subplots(figsize=(10, 6))
+    fig, ax = plt.subplots(figsize=(6.4, 4.4))
     series = {}
     for noise in NOISE_TYPES:
         values = [global_wer(axis_a_cell(rows_a, noise, s)) for s in snrs_desc]
-        series[noise] = (snrs_desc, values, NOISE_COLOURS.get(noise))
+        series[NOISE_DISPLAY[noise]] = (snrs_desc, values, NOISE_COLOURS.get(noise))
     plot_severity_curve(ax, snrs_desc, series, baseline_wer,
-                        "SNR (dB)", "Axis A — Global WER vs SNR", invert_x=True)
+                        "SNR (dB)", "", invert_x=True, annotate=False)
     fig.tight_layout()
     fig.savefig(plots_dir / "degradation_curves.png", dpi=300, bbox_inches="tight")
     plt.close(fig)
@@ -367,7 +378,7 @@ def run_analysis(test_mode: bool):
         colours=["#8c8c8c"] + ["#dd8452"] * len(labels_c),
     )
 
-    fig, (ax_rate, ax_sil) = plt.subplots(1, 2, figsize=(14, 6))
+    fig, (ax_rate, ax_sil) = plt.subplots(2, 1, figsize=(6.4, 7.6))
 
     # Rate sweep — include 1.0x (the clean baseline) as the natural anchor.
     rate_x = [1.0] + list(STRETCH_RATES)
@@ -375,9 +386,9 @@ def run_analysis(test_mode: bool):
         global_wer(groups_c.get(stretch_condition(r), [])) if groups_c.get(stretch_condition(r)) else np.nan
         for r in STRETCH_RATES
     ]
-    plot_severity_curve(ax_rate, rate_x, {"speaking rate": (rate_x, rate_y, "#d62728")},
-                        baseline_wer, "Speaking rate (x)",
-                        "Axis C — WER vs speaking rate")
+    plot_severity_curve(ax_rate, rate_x, {"Speaking rate": (rate_x, rate_y, "#d62728")},
+                        baseline_wer, "Speaking rate (\u00d7)",
+                        "(a) Speaking rate")
 
     # Silence sweep — 0 s is the clean baseline. Start and middle insertions are
     # different manipulations, so they are separate lines rather than one curve.
@@ -392,11 +403,11 @@ def run_analysis(test_mode: bool):
     for i, (pos, mapping) in enumerate(sorted(by_position.items())):
         colour = ["#1f77b4", "#2ca02c"][i % 2]
         durations = sorted(mapping)
-        sil_series[f"{pos} insertion"] = (
+        sil_series[{"start": "Onset insertion", "middle": "Mid-utterance insertion"}.get(pos, pos)] = (
             durations, [mapping[d] for d in durations], colour
         )
     plot_severity_curve(ax_sil, all_durations, sil_series, baseline_wer,
-                        "Inserted silence (s)", "Axis C — WER vs silence duration")
+                        "Inserted silence (s)", "(b) Inserted silence")
 
     fig.tight_layout()
     fig.savefig(plots_dir / "degradation_curves_axis_c.png", dpi=300, bbox_inches="tight")
@@ -412,30 +423,30 @@ def run_analysis(test_mode: bool):
     # =========================================================================
     # Hallucination audit figure
     # =========================================================================
-    labels = [r["condition"] for r in halluc_rows]
+    labels = [display_condition(r["condition"]) for r in halluc_rows]
     positions = range(len(labels))
 
-    fig, (ax_top, ax_bottom) = plt.subplots(2, 1, figsize=(15, 9))
+    fig, (ax_top, ax_bottom) = plt.subplots(2, 1, figsize=(12, 6.4))
     ax_top.bar(positions, [r["hallucination_pct"] for r in halluc_rows], color="#4c72b0")
     ax_top.axhline(halluc_rows[0]["hallucination_pct"], color="black", linestyle="--",
-                   label=f"clean baseline = {halluc_rows[0]['hallucination_pct']:.1f}%")
-    ax_top.set_ylabel("Utterances with a trailing\nhallucination (%)")
-    ax_top.set_title("Trailing-hallucination rate by condition")
+                   label=f"Clean baseline = {halluc_rows[0]['hallucination_pct']:.1f}%")
+    ax_top.set_ylabel("Utterances (%)")
+    ax_top.set_title("(a) Utterances with a hallucinated insertion", loc="left")
     ax_top.set_xticks(list(positions))
-    ax_top.set_xticklabels(labels, rotation=45, ha="right", fontsize=8)
+    ax_top.set_xticklabels(labels, rotation=45, ha="right", fontsize=9)
     ax_top.legend()
 
     width = 0.4
     ax_bottom.bar([p - width / 2 for p in positions], [r["raw_wer"] for r in halluc_rows],
-                  width, label="WER as measured", color="#b0b8c4")
+                  width, label="As measured", color="#b0b8c4")
     ax_bottom.bar([p + width / 2 for p in positions], [r["robust_wer"] for r in halluc_rows],
-                  width, label="WER with hallucinations removed", color="#2f3b47")
+                  width, label="Hallucinations removed", color="#2f3b47")
     ax_bottom.axhline(base_robust, color="crimson", linestyle="--",
-                      label=f"corrected clean baseline = {base_robust:.2f}%")
-    ax_bottom.set_ylabel("Global WER (%)")
-    ax_bottom.set_title("Removing the trailing phrase lifts every condition that exhibits it")
+                      label=f"Clean baseline, hallucinations removed = {base_robust:.2f}%")
+    ax_bottom.set_ylabel("Word error rate (%)")
+    ax_bottom.set_title("(b) Word error rate with and without hallucinated insertions", loc="left")
     ax_bottom.set_xticks(list(positions))
-    ax_bottom.set_xticklabels(labels, rotation=45, ha="right", fontsize=8)
+    ax_bottom.set_xticklabels(labels, rotation=45, ha="right", fontsize=9)
     ax_bottom.legend()
 
     fig.tight_layout()
@@ -485,9 +496,9 @@ def run_analysis(test_mode: bool):
         informational = [np.nan if d[1]["informational_wer"] is None else d[1]["informational_wer"]
                          for d in decomp]
         ax_right.bar(x - width / 2, energetic, width,
-                     label="energetic  (ssn − white)", color="#2ca02c")
+                     label="Energetic (SSN \u2212 white)", color="#2ca02c")
         ax_right.bar(x + width / 2, informational, width,
-                     label="informational  (cafe − ssn)", color="#1f77b4")
+                     label="Informational (cafe babble \u2212 SSN)", color="#1f77b4")
         ax_right.axhline(0, color="black", linewidth=0.8)
         ax_right.set_xticks(x)
         ax_right.set_xticklabels([f"{s} dB" for s in snrs_desc])
@@ -504,6 +515,32 @@ def run_analysis(test_mode: bool):
 
         fig.tight_layout()
         fig.savefig(plots_dir / "masking_decomposition.png", dpi=300, bbox_inches="tight")
+        plt.close(fig)
+
+        # Bars only, no curve panel.
+        #
+        # The two-panel figure above works standalone, on a slide. In the paper
+        # its left panel repeats the degradation-curve figure exactly -- same
+        # four maskers, same axes -- so the paper uses this version instead.
+        fig, ax = plt.subplots(figsize=(6.4, 4.4))
+        ax.bar(x - width / 2, energetic, width,
+               label="Energetic (SSN \u2212 white)", color="#2ca02c")
+        ax.bar(x + width / 2, informational, width,
+               label="Informational (cafe babble \u2212 SSN)", color="#1f77b4")
+        ax.axhline(0, color="black", linewidth=0.8)
+        ax.set_xticks(x)
+        ax.set_xticklabels([f"{s} dB" for s in snrs_desc])
+        ax.set_xlabel("SNR (dB)")
+        ax.set_ylabel("Contribution to WER (pp)")
+        ax.legend()
+        for offset, values in ((-width / 2, energetic), (width / 2, informational)):
+            for xi, value in zip(x + offset, values):
+                if np.isnan(value):
+                    continue
+                ax.text(xi, value, f"{value:+.2f}", ha="center",
+                        va="bottom" if value >= 0 else "top", fontsize=10)
+        fig.tight_layout()
+        fig.savefig(plots_dir / "masking_decomposition_bars.png", dpi=300, bbox_inches="tight")
         plt.close(fig)
 
         write_rows(out_dir / "masking_decomposition.csv", [{

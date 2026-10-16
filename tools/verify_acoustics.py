@@ -46,7 +46,8 @@ SILENCE_TOLERANCE_S = 0.05
 #
 # Threshold chosen from the measured distribution over all 150 utterances:
 # median 2.4%, p95 6.0%, max 11.3%. That spread is the intrinsic stopband
-# roll-off of a 4th-order Butterworth (8th effective through filtfilt), not a
+# roll-off of a 4th-order Butterworth bandpass (8 poles, 16th-order effective
+# through filtfilt), not a
 # defect. 25% sits ~2x above the worst legitimate case while still being 4x
 # below the ~100% a missing or misconfigured filter would produce.
 BANDPASS_MAX_RESIDUAL = 0.25
@@ -134,7 +135,9 @@ def verify_bandpass(signal, sr, lowcut=TELEPHONE_LOW_HZ, highcut=TELEPHONE_HIGH_
     """Return (in_band_energy, out_of_band_energy) from the magnitude spectrum."""
     N = len(signal)
     yf = fft(signal)
-    xf = np.linspace(0.0, sr / 2.0, N // 2)
+    # Bin k of an N-point FFT sits at k * sr / N. linspace(0, sr/2, N//2) put
+    # the bins slightly too high (its step is sr/(N-2), not sr/N).
+    xf = np.arange(N // 2) * sr / N
 
     mag = 2.0 / N * np.abs(yf[0:N // 2])
 

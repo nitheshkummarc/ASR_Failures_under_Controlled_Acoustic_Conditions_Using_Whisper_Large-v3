@@ -31,8 +31,9 @@ target GPU is a 4 GB RTX 3050.
 **Decision.** `WHISPER_COMPUTE_TYPE = "int8"` in `config.py`, with a fallback
 chain: configured → CUDA/int8 → CPU/int8.
 
-**Consequence.** The measured clean baseline is 3.44 % rather than the ~2.7 %
-published for the unquantized model. Absolute WER figures are therefore specific
+**Consequence.** The measured clean baseline is 3.01 % rather than the ~2.7 %
+published for the unquantized model. (An earlier 3.44 % blamed int8 for a gap
+that was mostly a text-normalization bug; the int8 cost is about 0.3 pp.) Absolute WER figures are therefore specific
 to this configuration; the relative comparisons between conditions — which is
 what the study is about — are unaffected, since every condition runs through the
 same quantized model.

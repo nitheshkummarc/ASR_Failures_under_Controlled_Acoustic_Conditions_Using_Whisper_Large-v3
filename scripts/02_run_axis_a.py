@@ -1,8 +1,9 @@
 """
 Stage 2 — Axis A: additive noise.
 
-Mixes each of the 150 utterances with white, pink and cafe-babble noise at
-20/15/10/5 dB SNR (1,800 degraded files), transcribes each, and scores it.
+Mixes each of the 150 utterances with white, pink, cafe-babble and
+speech-shaped noise at 20/15/10/5 dB SNR (2,400 degraded files), transcribes
+each, and scores it.
 
 TWO REPRODUCIBILITY RULES ARE ENFORCED HERE — do not change either:
 
@@ -47,7 +48,7 @@ logger = setup_logger("scripts.02_run_axis_a")
 
 OUTPUT_FIELDS = [
     "utterance_id", "speaker_id", "noise_type", "snr_db", "duration_s",
-    "ground_truth", "predicted_text", "wer", "cer", "substitutions",
+    "ground_truth", "predicted_text", "predicted_text_raw", "wer", "cer", "substitutions",
     "insertions", "deletions",
 ]
 
@@ -59,7 +60,7 @@ def _resume_key(row: dict) -> tuple:
     int(float(...)) rather than int(...) so a value serialized as "5.0" is still
     parsed. The old code tested .isdigit() first, so "5.0" fell through as a
     string and then raised inside int() — which was swallowed, emptying the
-    resume set and duplicating all 1,800 rows.
+    resume set and duplicating every row.
     """
     return (row["utterance_id"], row["noise_type"], int(float(row["snr_db"])))
 
@@ -143,6 +144,7 @@ def run_axis_a(test_mode: bool):
                         "duration_s": row["duration_s"],
                         "ground_truth": reference,
                         "predicted_text": scored["predicted_text"],
+                        "predicted_text_raw": scored["predicted_text_raw"],
                         "wer": scored["wer"],
                         "cer": scored["cer"],
                         "substitutions": scored["substitutions"],

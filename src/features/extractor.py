@@ -97,7 +97,7 @@ def build_mel_filterbank(n_fft: int, sr: int, n_mels: int) -> np.ndarray:
     Build the triangular Mel filterbank matrix, shape (n_mels, n_fft//2 + 1).
 
     Cached because it is a pure function of its three arguments and the pipeline
-    calls it 5,400 times with identical arguments (2,700 clean/degraded pairs
+    calls it 6,600 times with identical arguments (3,300 clean/degraded pairs
     x 2 signals). Rebuilding it every time cost an O(n_mels * n_bins) Python
     double loop per call for no benefit.
 
@@ -231,6 +231,22 @@ def frame_signal(y: np.ndarray, frame_len: int = FRAME_LENGTH, hop: int = HOP_LE
     for i in range(n_frames):
         frames[i] = y[i * hop: i * hop + frame_len]
     return frames
+
+
+def resample_frames(arr: np.ndarray, target_len: int) -> np.ndarray:
+    """
+    Linearly resample a feature sequence onto a grid of `target_len` frames.
+
+    1-D (frames,) or 2-D (coefficients, frames); the last axis is time. Used to
+    put a time-stretched signal's features on the clean signal's frame grid, so
+    frame t of one is compared with the same speech in the other.
+    """
+    arr = np.asarray(arr, dtype=float)
+    src = np.linspace(0.0, 1.0, arr.shape[-1])
+    dst = np.linspace(0.0, 1.0, target_len)
+    if arr.ndim == 1:
+        return np.interp(dst, src, arr)
+    return np.stack([np.interp(dst, src, row) for row in arr])
 
 
 def extract_all_features(y: np.ndarray, sr: int):

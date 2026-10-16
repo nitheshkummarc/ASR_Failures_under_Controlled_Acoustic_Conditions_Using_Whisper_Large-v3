@@ -8,7 +8,7 @@ between them. Stage 5 then tests whether that deviation predicts WER.
 IMPORTANT — THE TWO BRANCHES ARE NOT ON THE SAME SCALE:
 
   * Non-stretch conditions compare the MEAN feature vectors (a single
-    time-average per signal), because the two signals are the same length.
+    time-average over each full signal; silence conditions are longer).
   * Stretch conditions compare the full per-frame SEQUENCES after resampling
     the degraded one onto the clean frame grid, because time-averaging would
     hide exactly the temporal distortion being measured.
@@ -32,7 +32,7 @@ import soundfile as sf
 from tqdm import tqdm
 
 from config import DATA_DIR, RESULTS_DIR, AXIS_A_DIR, AXIS_B_DIR, AXIS_C_DIR
-from src.features.extractor import extract_all_features
+from src.features.extractor import extract_all_features, resample_frames
 from src.results_io import read_rows
 from src.logger import setup_logger
 
@@ -98,15 +98,6 @@ def build_work_list(out_dir: Path, axis_a_dir: Path, axis_b_dir: Path, axis_c_di
     return records
 
 
-def interp_1d(arr: np.ndarray, target_len: int) -> np.ndarray:
-    """Linearly resample a 1-D feature sequence onto a grid of `target_len` points."""
-    return np.interp(
-        np.linspace(0, 1, target_len),
-        np.linspace(0, 1, len(arr)),
-        arr,
-    )
-
-
 def deviation_for_record(record: dict) -> dict:
     """Compute (mfcc_mse, ste_mse, zcr_mse) for one clean/degraded pair."""
     y_clean, sr = sf.read(str(record["clean_path"]))
@@ -118,25 +109,19 @@ def deviation_for_record(record: dict) -> dict:
         feat_clean = extract_all_features(y_clean, sr)
         feat_deg = extract_all_features(y_deg, sr)
 
-        ste_deg_interp = interp_1d(feat_deg["ste"], len(feat_clean["ste"]))
-        zcr_deg_interp = interp_1d(feat_deg["zcr"], len(feat_clean["zcr"]))
-
-        mfcc_deg_interp = np.zeros(
-            (feat_deg["mfcc"].shape[0], feat_clean["mfcc"].shape[1])
-        )
-        for i in range(feat_deg["mfcc"].shape[0]):
-            mfcc_deg_interp[i] = interp_1d(feat_deg["mfcc"][i], feat_clean["mfcc"].shape[1])
+        ste_deg_interp = resample_frames(feat_deg["ste"], len(feat_clean["ste"]))
+        zcr_deg_interp = resample_frames(feat_deg["zcr"], len(feat_clean["zcr"]))
+        mfcc_deg_interp = resample_frames(feat_deg["mfcc"], feat_clean["mfcc"].shape[1])
 
         mfcc_dev = np.mean((feat_clean["mfcc"] - mfcc_deg_interp) ** 2)
         ste_dev = np.mean((feat_clean["ste"] - ste_deg_interp) ** 2)
         zcr_dev = np.mean((feat_clean["zcr"] - zcr_deg_interp) ** 2)
     else:
-        # Same-length (or silence-padded) conditions: truncate and compare the
-        # time-averaged feature vectors.
-        min_len = min(len(y_clean), len(y_deg))
-        y_clean = y_clean[:min_len]
-        y_deg = y_deg[:min_len]
-
+        # Compare time-averaged feature vectors over each FULL signal. The
+        # signals used to be truncated to a common length first, which for the
+        # silence conditions cut the last 0.5-2 s of SPEECH off the degraded
+        # file. Averages need no common length; Axis A/B files are the same
+        # length as the clean one, so their values are unaffected.
         feat_clean = extract_all_features(y_clean, sr)
         feat_deg = extract_all_features(y_deg, sr)
 

@@ -31,14 +31,19 @@ Global (corpus-level) WER = `Σ(S+D+I) / Σ(reference words)`.
 
 | Condition | Global WER |
 |---|---|
-| Clean baseline | **3.44 %** |
-| Telephonic (300–3400 Hz) | 3.27 % — no measurable cost |
-| White 20 / 15 / 10 / 5 dB | 3.53 / 3.89 / 4.25 / **6.28 %** |
-| Pink 20 / 15 / 10 / 5 dB | 3.83 / 4.02 / 3.96 / **4.78 %** |
-| SSN 20 / 15 / 10 / 5 dB | 3.27 / 3.40 / 3.73 / **5.20 %** |
-| Café 20 / 15 / 10 / 5 dB | 2.91 / 3.24 / 4.12 / **9.39 %** |
-| Silence 0.5 s start / 1.0 s mid / 2.0 s mid | 4.12 / 3.40 / 3.53 % |
-| Rate 1.2× / 1.5× | 5.86 / **11.19 %** |
+| Clean baseline | **3.01 %** |
+| Telephonic (300–3400 Hz) | 3.11 % — no measurable cost |
+| White 20 / 15 / 10 / 5 dB | 3.27 / 3.63 / 3.99 / **6.02 %** |
+| Pink 20 / 15 / 10 / 5 dB | 3.66 / 3.76 / 3.70 / **4.35 %** |
+| SSN 20 / 15 / 10 / 5 dB | 2.68 / 2.94 / 3.21 / **4.97 %** |
+| Café 20 / 15 / 10 / 5 dB | 2.55 / 2.72 / 3.70 / **9.00 %** |
+| Silence 0.5 s start / 1.0 s mid / 2.0 s mid | 3.70 / 3.14 / 3.11 % |
+| Rate 1.2× / 1.5× | 5.76 / **11.09 %** |
+
+These supersede an earlier set that was 0.2–0.6 pp higher everywhere: the text
+normalizer turned Whisper's digits into words that did not match the reference
+("9,500" → "ninefive hundred", "1707" → "one thousand seven hundred and seven"
+against "seventeen o seven"). Fixed, and every stage re-run.
 
 ### 1. Babble damages recognition through two separable mechanisms
 
@@ -54,42 +59,46 @@ That isolates one variable at a time:
 
 | SNR | energetic (SSN − white) | informational (café − SSN) |
 |---|---|---|
-| 20 dB | −0.26 | −0.36 |
-| 15 dB | −0.49 | −0.16 |
-| 10 dB | −0.52 | +0.39 |
-| **5 dB** | **−1.08** | **+4.19** |
-| **pooled** | **−0.59** `[−0.99, −0.19]` p = 0.0008 | **+1.01** `[+0.59, +1.47]` p = 0.00002 |
+| 20 dB | −0.59 | −0.13 |
+| 15 dB | −0.69 | −0.23 |
+| 10 dB | −0.79 | +0.49 |
+| **5 dB** | **−1.05** | **+4.02** |
+| **pooled** | **−0.78** `[−1.14, −0.41]` p = 0.00002 | **+1.04** `[+0.63, +1.47]` p = 0.00001 |
 
-Both terms are significant pooled across 600 paired cells.
+Both terms are significant pooled across 600 paired cells. The energetic term is
+also significant on its own at 15, 10 and 5 dB; the informational term only at 5 dB.
 
 **The energetic term is negative.** Concentrating noise energy in the speech
 bands is *less* damaging than spreading it flat, at the same broadband SNR.
-White noise puts 87.6 % of its energy above 1 kHz where the consonant cues live
+White noise puts 87.5 % of its energy above 1 kHz where the consonant cues live
 (in-band SNR −1.05 dB at nominal 5 dB); speech-shaped energy sits under the
-F0/F1 region where speech is redundant (+2.54 dB).
+F0/F1 region where speech is redundant (+3.77 dB). Pink is gentler still
+(+4.52 dB): about 63 % of its power lies below 50 Hz, counted in the broadband
+SNR but masking nothing — which is why pink has the lowest WER at 5 dB.
 
 **Informational masking is threshold-like.** It is indistinguishable from zero at
-20, 15 and 10 dB, then accounts for +4.19 pp at 5 dB — 70 % of café's total
+20, 15 and 10 dB, then accounts for +4.02 pp at 5 dB — 67 % of café's total
 excess over baseline. Since café and SSN are spectrally matched and mixed at the
 same measured SNR, that gap cannot be energetic.
 
 ### 2. Band-limiting is free
 
-Discarding everything outside 300–3400 Hz costs nothing measurable (3.27 %
-against a 3.44 % baseline), so the information the model relies on lives inside
+Discarding everything outside 300–3400 Hz costs nothing measurable (3.11 %
+against a 3.01 % baseline), so the information the model relies on lives inside
 the telephone band.
 
 ### 3. The largest single degradation is temporal
 
-Rate 1.5× yields 11.19 % on audio containing no added noise whatsoever — a
-spectrally clean signal, simply traversed faster. This points at decoder
-cross-attention alignment rather than the acoustic front end.
+Rate 1.5× yields 11.09 % on audio containing no added noise whatsoever — a signal whose long-term spectrum is
+almost unchanged, simply traversed faster. An audibility index predicts only
+~0.6 pp of it. That points at decoder alignment, though local phase-vocoder
+artefacts (smeared onsets) could contribute and this design cannot separate them.
 
 ### 4. An end-of-audio hallucination confounds the raw comparison
 
 On 6.7 % of clean utterances Whisper appends a stock closing phrase —
 overwhelmingly `"thank you"` — absent from the reference, supplying 20 of the
-baseline's 32 insertions. The effect is condition-dependent, not a constant
+baseline's 25 insertions. The effect is condition-dependent, not a constant
 offset: café suppresses it completely at every SNR by filling the trailing
 silence, while white and pink leave it intact.
 
@@ -99,8 +108,10 @@ secondary metric is reported alongside (never instead of) the primary WER:
 
 | | raw | robust |
 |---|---|---|
-| clean baseline | 3.44 % | **2.78 %** |
-| café 20 dB | 2.91 % (−0.52 below) | 2.91 % (**+0.13 above**) |
+| clean baseline | 3.01 % | **2.36 %** |
+| café 20 dB | 2.55 % (−0.46 below) | 2.55 % (**+0.20 above**) |
+
+After correction no condition sits below the clean baseline.
 
 Note this is **not** purely spectral: SSN is spectrally identical to café yet only
 partially suppresses the phrase (0–4 %), so café's temporal structure matters too.
@@ -108,35 +119,35 @@ partially suppresses the phrase (0–4 %), so café's temporal structure matters
 ### 5. Spectral distortion is informative within a masker and misleading across maskers
 
 The naive test — Pearson correlation pooled over all 2,400 Axis A trials — finds
-nothing: MFCC `r = 0.028, p = 0.163`, STE `r = 0.008, p = 0.696`, ZCR
-`r = 0.026, p = 0.211`. But Pearson tests a *linear* relationship, and pooling
+almost nothing: MFCC `r = 0.046, p = 0.024` (significant, but under 0.3 % of the
+variance), STE `r = 0.014, p = 0.495`, ZCR `r = 0.024, p = 0.247`. But Pearson tests a *linear* relationship, and pooling
 hides a sign reversal.
 
 Spearman on the same data is significant for two of the three
-(MFCC `ρ = 0.080, p = 8.6e-05`; STE `ρ = 0.144, p = 1.4e-12`), and **within** a
+(MFCC `ρ = 0.083, p = 4.7e-05`; STE `ρ = 0.144, p = 1.4e-12`), and **within** a
 fixed noise type the correlation is positive:
 
 | Noise | MFCC r | p |
 |---|---|---|
-| café | **0.206** | 3.7e-07 |
-| SSN | **0.120** | 0.003 |
-| pink | 0.073 | 0.074 |
-| white | 0.017 | 0.684 |
+| café | **0.208** | 2.7e-07 |
+| SSN | **0.129** | 0.001 |
+| pink | **0.124** | 0.002 |
+| white | 0.049 | 0.233 |
 
 *Between* noise types the relationship runs the other way, and strongly:
 
 | Condition | mean MFCC MSE | Global WER |
 |---|---|---|
-| **telephonic** | **831.8** | **3.27 %** (no measurable cost) |
-| white 5 dB | 244.9 | 6.28 % |
-| pink 5 dB | 93.7 | 4.78 % |
-| SSN 5 dB | 49.7 | 5.20 % |
-| **café 5 dB** | **33.5** | **9.39 %** (worst) |
+| **telephonic** | **831.8** | **3.11 %** (no measurable cost) |
+| white 5 dB | 244.9 | 6.02 % |
+| pink 5 dB | 93.7 | 4.35 % |
+| SSN 5 dB | 49.7 | 4.97 % |
+| **café 5 dB** | **33.5** | **9.00 %** (worst) |
 
 Telephonic produces **25× more MFCC deviation than café** and costs nothing,
 while café barely moves the MFCCs and is the most damaging additive condition.
 Pooling the positive within-masker trend against this negative between-masker
-trend cancels both — a Simpson's paradox. So the honest claim is not "feature
+trend nearly cancels both — a Simpson's paradox. So the honest claim is not "feature
 deviation is uninformative"; it is that a spectral-distance feature tracks
 severity *within* a masker and actively misleads *across* maskers, which is the
 same conclusion the masking decomposition reaches by another route.
@@ -144,8 +155,9 @@ same conclusion the masking decomposition reaches by another route.
 ### Statistical note
 
 Only 9 of 22 conditions are significantly worse than clean under a paired
-bootstrap. Everything at 20/15 dB, telephonic and both mid-utterance silence
-conditions have confidence intervals straddling zero. With 3,056 reference words
+bootstrap and Wilcoxon test together: white 10/5 dB, pink 15/5 dB, café 5 dB,
+SSN 5 dB, both rates, and the 0.5 s start silence. Everything at 20 dB, telephonic
+and both mid-utterance silence conditions have intervals straddling zero. With 3,056 reference words
 the resolution limit is roughly ±0.6 pp; resolving a 0.25 pp difference would
 need ~780 utterances.
 

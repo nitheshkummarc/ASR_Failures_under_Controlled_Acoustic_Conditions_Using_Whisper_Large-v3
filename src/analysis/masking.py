@@ -80,18 +80,26 @@ SPEECH_BANDS = (
 
 def power_spectrum(x: np.ndarray, sr: int, nperseg: int = 1024):
     """
-    Welch power spectral density, normalized to sum to 1.
+    Welch power per frequency bin, as a FRACTION OF THE SIGNAL'S TOTAL POWER.
 
-    Normalizing makes the result a pure SHAPE — the distribution of energy over
-    frequency, independent of overall level. Level is set separately by the
-    target SNR, so keeping the two apart is what lets band SNRs be computed for
-    any nominal SNR without regenerating audio.
+    Expressing it as a fraction makes the result a pure SHAPE, independent of
+    overall level. Level is set separately by the target SNR, which is what lets
+    band SNRs be computed for any nominal SNR without regenerating audio.
+
+    The denominator is the time-domain mean square, NOT the Welch total. The
+    experiment sets SNR on time-domain RMS, so the two must agree. They differ
+    for pink noise: about 40 % of its power lies below ~15 Hz, which 64 ms Welch
+    segments (mean removed per segment) cannot resolve. Normalizing by the Welch
+    total re-distributed that inaudible power into the speech bands and made
+    pink's in-band SNR ~2 dB worse than it really is. With this denominator the
+    bins sum to the fraction of power Welch can see (~0.6 for pink, ~1 for the
+    rest) and band powers are correct in absolute proportion.
     """
     freqs, psd = scipy.signal.welch(x, sr, nperseg=min(nperseg, len(x)))
-    total = psd.sum()
-    if total <= 0:
+    mean_square = float(np.mean(np.asarray(x, dtype=float) ** 2))
+    if mean_square <= 0 or len(freqs) < 2:
         return freqs, psd
-    return freqs, psd / total
+    return freqs, psd * (freqs[1] - freqs[0]) / mean_square
 
 
 def band_snr_profile(
@@ -195,6 +203,53 @@ def speech_weighted_snr(
 
         sii += weight * audibility
 
+    return float(sii)
+
+
+def distortion_sii(clean: np.ndarray, degraded: np.ndarray, sr: int) -> float:
+    """
+    SII for ANY degradation, additive or not — the audibility left in `degraded`.
+
+    speech_weighted_snr() needs a separate masker, so it only covers additive
+    noise. A filter or a time manipulation adds no masker; it REMOVES or alters
+    speech energy instead. Generalising, in each octave band b with long-term
+    clean power C_b and degraded power D_b:
+
+        retained_b   = min(C_b, D_b)       speech evidence still present
+        corruption_b = |D_b - C_b|         energy added (noise) or removed (filter)
+        SNR_b        = 10 log10(retained_b / corruption_b)
+
+    then the same clip to +/-15 dB, audibility map and ANSI weights as the
+    standard SII. For additive noise D_b = C_b + N_b, so this reduces exactly to
+    the usual band SNR. A band the filter removes has retained ~ 0 and scores 0;
+    a band it passes untouched has corruption ~ 0 and scores 1.
+
+    Both signals must be time-aligned versions of the same speech (e.g. inserted
+    silence removed first). Welch averages power over time, so a time-stretched
+    signal can be compared directly: it carries the same spectrum, just faster.
+    """
+    nperseg = min(1024, len(clean), len(degraded))
+    freqs, p_clean = scipy.signal.welch(clean, sr, nperseg=nperseg)
+    _, p_deg = scipy.signal.welch(degraded, sr, nperseg=nperseg)
+
+    sii = 0.0
+    for centre, weight in zip(SII_OCTAVE_BANDS_HZ, SII_BAND_WEIGHTS):
+        mask = (freqs >= centre / np.sqrt(2.0)) & (freqs < centre * np.sqrt(2.0))
+        if not mask.any():
+            continue
+        c, d = float(p_clean[mask].sum()), float(p_deg[mask].sum())
+        if c <= 0:
+            continue
+        retained, corruption = min(c, d), abs(d - c)
+        if corruption <= 1e-12 * c:
+            audibility = 1.0
+        elif retained <= 0:
+            audibility = 0.0
+        else:
+            snr_db = 10.0 * np.log10(retained / corruption)
+            clipped = np.clip(snr_db, SII_SNR_FLOOR_DB, SII_SNR_CEILING_DB)
+            audibility = (clipped - SII_SNR_FLOOR_DB) / (SII_SNR_CEILING_DB - SII_SNR_FLOOR_DB)
+        sii += weight * audibility
     return float(sii)
 
 
@@ -332,7 +387,8 @@ def decompose_masking(
             what changes when linguistic structure is ADDED, with spectrum and
             broadband SNR held identical
 
-    Returns the three quantities plus `informational_share`, the fraction of the
+    Returns the three quantities plus `informational_share` (None unless the
+    total excess is positive), the fraction of the
     structured masker's excess-over-baseline that spectral overlap cannot
     account for. A share near 0 means the babble is just well-aimed noise; a
     share near 1 means essentially all of its damage is central.
@@ -358,8 +414,12 @@ def decompose_masking(
         else structured_wer - control_wer
     )
 
+    # A share of a non-positive total is meaningless: at 20 dB cafe sits BELOW
+    # clean (total -0.52) and informational is -0.36, which divided out to a
+    # nonsensical "69% informational". Only report it when there is damage to
+    # attribute.
     share = None
-    if informational is not None and total not in (None, 0.0):
+    if informational is not None and total is not None and total > 0:
         share = informational / total
 
     return {

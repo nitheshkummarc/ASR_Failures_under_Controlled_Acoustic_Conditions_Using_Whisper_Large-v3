@@ -32,8 +32,10 @@ def apply_telephonic_bandpass(y: np.ndarray, sr: int) -> np.ndarray:
     filtfilt rather than lfilter is a deliberate experimental control: filtering
     in both directions gives ZERO phase distortion. If phase were altered, it
     would become an uncontrolled second variable alongside the band-limiting
-    that this axis is actually measuring. The cost is that the effective
-    magnitude response is that of an 8th-order filter.
+    that this axis is actually measuring. The cost: a 4th-order Butterworth
+    BANDPASS is already an 8th-order filter (each lowpass pole becomes a pair),
+    and filtfilt squares its magnitude response, so the effective roll-off is
+    16th-order and the 300/3400 Hz edges sit at -6 dB rather than -3 dB.
 
     Args:
         y:  1-D signal.

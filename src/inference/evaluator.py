@@ -33,3 +33,24 @@ def evaluate_metrics(reference: str, hypothesis: str) -> dict:
         "hits": word_output.hits,
         "word_count_ref": ref_word_count,
     }
+
+
+def insertion_spans(reference: str, hypothesis: str) -> list:
+    """
+    Hypothesis word ranges [start, end) that jiwer aligns as INSERTIONS.
+
+    These are exactly the words WER charges as insertions -- hypothesis words
+    with no reference counterpart. Uses the same alignment as evaluate_metrics,
+    so what is reported here agrees with the insertion count there.
+    """
+    n_hyp = len(hypothesis.split()) if hypothesis else 0
+    if n_hyp == 0:
+        return []
+    if not reference:
+        return [(0, n_hyp)]
+
+    return [
+        (chunk.hyp_start_idx, chunk.hyp_end_idx)
+        for chunk in jiwer.process_words(reference, hypothesis).alignments[0]
+        if chunk.type == "insert"
+    ]

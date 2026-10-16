@@ -2,10 +2,10 @@
 Axis A — Additive Noise Augmentation
 =====================================================================
 DSP core for applying controlled additive noise to the 150 clean LibriSpeech
-utterances, producing 1,800 degraded signals (150 × 3 noise types × 4 SNRs).
+utterances, producing 2,400 degraded signals (150 × 4 noise types × 4 SNRs).
 Driven by scripts/02_run_axis_a.py.
 
-Noise types:  White, Pink, Café (multi-talker babble)
+Noise types:  White, Pink, Café (multi-talker babble), SSN (speech-shaped control)
 SNR levels:   20 dB, 15 dB, 10 dB, 5 dB
 
 Per proposal §3 (Axis A), §9 (build order), and the user's strict rule:

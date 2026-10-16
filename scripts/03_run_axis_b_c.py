@@ -41,7 +41,7 @@ logger = setup_logger("scripts.03_run_axis_b_c")
 
 OUTPUT_FIELDS = [
     "utterance_id", "speaker_id", "condition", "duration_s",
-    "ground_truth", "predicted_text", "wer", "cer", "substitutions",
+    "ground_truth", "predicted_text", "predicted_text_raw", "wer", "cer", "substitutions",
     "insertions", "deletions",
 ]
 
@@ -143,6 +143,7 @@ def run_axis_b_c(test_mode: bool):
                     "duration_s": row["duration_s"],
                     "ground_truth": reference,
                     "predicted_text": scored["predicted_text"],
+                    "predicted_text_raw": scored["predicted_text_raw"],
                     "wer": scored["wer"],
                     "cer": scored["cer"],
                     "substitutions": scored["substitutions"],
